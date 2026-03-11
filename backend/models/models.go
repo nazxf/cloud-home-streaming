@@ -38,6 +38,20 @@ type LoginResponse struct {
 	Message  string `json:"message"`
 }
 
+type ProgressRequest struct {
+	Position  int64 `json:"position"`
+	Duration  int64 `json:"duration"`
+	Completed bool  `json:"completed"`
+}
+
+type ProgressResponse struct {
+	Filename  string    `json:"filename"`
+	Position  int64     `json:"position"`
+	Duration  int64     `json:"duration"`
+	Completed bool      `json:"completed"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 type Claims struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims

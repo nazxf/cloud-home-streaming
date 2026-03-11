@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"strings"
+	"time"
 
 	"streamflix/config"
 
@@ -23,6 +24,20 @@ func InitDB() error {
 			filename TEXT PRIMARY KEY,
 			title TEXT NOT NULL,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)
+	`); err != nil {
+		return err
+	}
+
+	if _, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS user_progress (
+			username TEXT NOT NULL,
+			filename TEXT NOT NULL,
+			position_seconds INTEGER NOT NULL DEFAULT 0,
+			duration_seconds INTEGER NOT NULL DEFAULT 0,
+			completed INTEGER NOT NULL DEFAULT 0,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY(username, filename)
 		)
 	`); err != nil {
 		return err
@@ -64,4 +79,50 @@ func LoadVideoTitles() map[string]string {
 		}
 	}
 	return result
+}
+
+func UpsertUserProgress(username, filename string, positionSeconds, durationSeconds int64, completed bool) error {
+	if strings.TrimSpace(username) == "" || strings.TrimSpace(filename) == "" {
+		return nil
+	}
+	completedValue := 0
+	if completed {
+		completedValue = 1
+	}
+	_, err := DB.Exec(`
+		INSERT INTO user_progress (username, filename, position_seconds, duration_seconds, completed, updated_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(username, filename)
+		DO UPDATE SET
+			position_seconds=excluded.position_seconds,
+			duration_seconds=excluded.duration_seconds,
+			completed=excluded.completed,
+			updated_at=CURRENT_TIMESTAMP
+	`, username, filename, positionSeconds, durationSeconds, completedValue)
+	return err
+}
+
+func GetUserProgress(username, filename string) (int64, int64, bool, time.Time, error) {
+	var position, duration int64
+	var completedInt int
+	var updated time.Time
+	err := DB.QueryRow(`
+		SELECT position_seconds, duration_seconds, completed, updated_at
+		FROM user_progress
+		WHERE username = ? AND filename = ?
+	`, username, filename).Scan(&position, &duration, &completedInt, &updated)
+	return position, duration, completedInt == 1, updated, err
+}
+
+func DeleteProgressForFilename(filename string) error {
+	_, err := DB.Exec(`DELETE FROM user_progress WHERE filename = ?`, filename)
+	return err
+}
+
+func RenameProgressFilename(oldFilename, newFilename string) error {
+	if strings.TrimSpace(oldFilename) == "" || strings.TrimSpace(newFilename) == "" || oldFilename == newFilename {
+		return nil
+	}
+	_, err := DB.Exec(`UPDATE user_progress SET filename = ? WHERE filename = ?`, newFilename, oldFilename)
+	return err
 }

@@ -17,6 +17,14 @@ export interface Video {
   groupType?: 'series' | 'other' | string;
 }
 
+export interface VideoProgress {
+  filename: string;
+  position: number;
+  duration: number;
+  completed: boolean;
+  updatedAt?: string;
+}
+
 export interface LoginResponse {
   token: string;
   username: string;
@@ -76,6 +84,24 @@ export const api = {
       throw new Error(err.error || 'Login failed');
     }
     return res.json();
+  },
+
+  getProgress: async (filename: string): Promise<VideoProgress> => {
+    const res = await fetch(`${API_BASE}/api/progress/${encodeURIComponent(filename)}`, { headers: getHeaders() });
+    unauthorizedGuard(res);
+    if (!res.ok) throw new Error('Failed to load progress');
+    return res.json();
+  },
+
+  saveProgress: async (filename: string, position: number, duration: number, completed = false): Promise<void> => {
+    const payload = { position: Math.floor(position), duration: Math.floor(duration), completed };
+    const res = await fetch(`${API_BASE}/api/progress/${encodeURIComponent(filename)}`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+    unauthorizedGuard(res);
+    if (!res.ok) throw new Error('Failed to save progress');
   },
 
   getVideos: async (): Promise<Video[]> => {

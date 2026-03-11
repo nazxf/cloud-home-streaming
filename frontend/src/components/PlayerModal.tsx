@@ -18,7 +18,7 @@ import {
   SkipForward,
   Check
 } from 'lucide-react';
-import { Video, getStreamUrl, getManualThumbnailUrl } from '../api';
+import { Video, api, getStreamUrl, getManualThumbnailUrl } from '../api';
 
 interface PlayerModalProps {
   video: Video;
@@ -65,6 +65,11 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
   const [isLooping, setIsLooping] = useState(false);
   const [currentChapter, setCurrentChapter] = useState('Intro');
 
+  const [resumeSeconds, setResumeSeconds] = useState<number | null>(null);
+  const [resumeApplied, setResumeApplied] = useState(false);
+  const [resumeLoaded, setResumeLoaded] = useState(false);
+  const [metadataReady, setMetadataReady] = useState(false);
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiResult, setAiResult] = useState<string | null>(null);
 
@@ -83,6 +88,9 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
   const progressContainerRef = useRef<HTMLDivElement | null>(null);
   const accumulatedSeconds = useRef(0);
 
+  const lastProgressSentAtRef = useRef(0);
+  const lastProgressPositionRef = useRef(0);
+
   const streamUrl = getStreamUrl(video);
   const posterUrl = getManualThumbnailUrl(video);
 
@@ -98,11 +106,48 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
   };
 
   useEffect(() => {
+    let active = true;
+    setResumeApplied(false);
+    setResumeSeconds(null);
+    setResumeLoaded(false);
+    setMetadataReady(false);
+    api.getProgress(video.filename)
+      .then((data) => {
+        if (!active) return;
+        const nextPosition = data.completed ? 0 : data.position || 0;
+        setResumeSeconds(nextPosition);
+        setResumeLoaded(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setResumeSeconds(0);
+        setResumeLoaded(true);
+      });
+    return () => { active = false; };
+  }, [video.filename]);
+
+
+  useEffect(() => {
     const el = videoRef.current;
-    if (!el) return;
+    if (!el || !metadataReady || resumeApplied || !resumeLoaded) return;
+    if (resumeSeconds && resumeSeconds > 0 && Number.isFinite(el.duration)) {
+      const safeTime = Math.min(resumeSeconds, Math.max(0, el.duration - 5));
+      if (safeTime > 0) {
+        el.currentTime = safeTime;
+        setProgress((safeTime / el.duration) * 100);
+        setCurrentTime(formatTime(safeTime));
+      }
+    }
+    setResumeApplied(true);
     el.play()
       .then(() => { setIsPlaying(true); setShowCenterPlay(false); })
-      .catch(() => {});
+      .catch(() => { setIsPlaying(false); setShowCenterPlay(true); });
+  }, [resumeSeconds, metadataReady, resumeApplied, resumeLoaded]);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    // Wait for resume + metadata before autoplay
   }, [streamUrl]);
 
   useEffect(() => {
@@ -114,7 +159,7 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
         case 'm': e.preventDefault(); toggleMute(); break;
         case 'arrowright': case 'l': e.preventDefault(); skipTime(15); showSeekAnimation('right', 15); break;
         case 'arrowleft': case 'j': e.preventDefault(); skipTime(-15); showSeekAnimation('left', 15); break;
-        case 'escape': if (!document.fullscreenElement) onClose(); break;
+        case 'escape': if (!document.fullscreenElement) requestClose(); break;
         default: break;
       }
     };
@@ -140,6 +185,30 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
     if (isPlaying && !contextMenu.visible && !showSettings) setShowControls(false);
   };
 
+  const saveProgress = (completed = false) => {
+    const el = videoRef.current;
+    if (!el || !Number.isFinite(el.duration) || el.duration <= 0) return;
+    const current = completed ? 0 : el.currentTime;
+    const durationValue = el.duration;
+    try {
+      api.saveProgress(video.filename, current, durationValue, completed);
+      lastProgressSentAtRef.current = Date.now();
+      lastProgressPositionRef.current = current;
+    } catch {
+      // ignore progress save errors
+    }
+  };
+
+  const isResuming = !resumeApplied && (!resumeLoaded || !metadataReady);
+  const resumeHasPosition = (resumeSeconds || 0) > 0;
+  const resumeLabel = resumeHasPosition ? '{resumeLabel}' : 'Loading video...';
+
+
+  const requestClose = () => {
+    saveProgress(false);
+    onClose();
+  };
+
   const togglePlay = () => {
     const el = videoRef.current;
     if (!el) return;
@@ -150,6 +219,7 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
       el.play(); setIsPlaying(true); setShowCenterPlay(false);
     } else {
       el.pause(); setIsPlaying(false); setShowControls(true); setShowCenterPlay(true);
+      saveProgress(false);
     }
   };
 
@@ -221,9 +291,46 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
     setProgress((current / total) * 100);
     setCurrentTime(formatTime(current));
     setTimeLeft(formatTime(total - current));
-    if (current < 60) setCurrentChapter('Intro');
-    else if (current < 200) setCurrentChapter('Misi Dimulai');
-    else if (current < 400) setCurrentChapter('Klimaks');
+    const now = Date.now();
+    if (now - lastProgressSentAtRef.current >= 10000 && Math.abs(current - lastProgressPositionRef.current) >= 2) {
+      saveProgress(false);
+    }
+    const totalSec = total;
+    let introEnd: number;
+    let midEnd: number;
+    let climaxEnd: number;
+
+    if (totalSec <= 10 * 60) {
+      // Very short content
+      introEnd = totalSec * 0.12;
+      midEnd = totalSec * 0.55;
+      climaxEnd = totalSec * 0.82;
+    } else if (totalSec <= 30 * 60) {
+      // Short episode
+      introEnd = totalSec * 0.14;
+      midEnd = totalSec * 0.60;
+      climaxEnd = totalSec * 0.85;
+    } else if (totalSec <= 90 * 60) {
+      // Standard movie/episode
+      introEnd = totalSec * 0.12;
+      midEnd = totalSec * 0.65;
+      climaxEnd = totalSec * 0.88;
+    } else {
+      // Long content
+      introEnd = totalSec * 0.10;
+      midEnd = totalSec * 0.68;
+      climaxEnd = totalSec * 0.90;
+    }
+
+    // Safety: ensure at least 30s for intro and 2m for ending when possible
+    if (totalSec >= 4 * 60) {
+      introEnd = Math.max(introEnd, 30);
+      climaxEnd = Math.min(climaxEnd, totalSec - 120);
+    }
+
+    if (current < introEnd) setCurrentChapter('Intro');
+    else if (current < midEnd) setCurrentChapter('Misi Dimulai');
+    else if (current < climaxEnd) setCurrentChapter('Klimaks');
     else setCurrentChapter('Penutup');
   };
 
@@ -231,6 +338,8 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
     const el = videoRef.current;
     if (!el) return;
     setDuration(formatTime(el.duration));
+    setMetadataReady(true);
+
   };
 
   const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -353,7 +462,7 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
   // Lock body scroll when modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
+    return () => { saveProgress(false); document.body.style.overflow = ''; };
   }, []);
 
   return (
@@ -370,7 +479,7 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
         fontFamily: "'Inter', sans-serif",
         overflow: 'hidden',
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}
     >
       {/* Inline styles for animations */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -443,14 +552,51 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onPlay={() => setIsEnded(false)}
-            onEnded={() => { setIsPlaying(false); setShowCenterPlay(true); setIsEnded(true); }}
+            onEnded={() => { saveProgress(true); setIsPlaying(false); setShowCenterPlay(true); setIsEnded(true); }}
             loop={isLooping}
             playsInline
             controls={false}
             controlsList="nodownload noplaybackrate"
             src={streamUrl}
-            poster={posterUrl}
           />
+
+          {isResuming && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              zIndex: 25,
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 16px',
+                borderRadius: '999px',
+                background: 'rgba(0,0,0,0.55)',
+                border: resumeHasPosition ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(34,197,94,0.35)',
+                backdropFilter: 'blur(8px)',
+                color: 'white',
+                fontSize: '13px',
+                fontWeight: 600,
+                letterSpacing: '0.3px',
+                boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+              }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '999px',
+                  background: resumeHasPosition ? '#ef4444' : '#22c55e',
+                  boxShadow: resumeHasPosition ? '0 0 10px rgba(239,68,68,0.7)' : '0 0 10px rgba(34,197,94,0.7)',
+                  animation: 'pulse 1.2s infinite',
+                }} />
+                {resumeLabel}
+              </div>
+            </div>
+          )}
 
           {/* ─── TOP OVERLAY: StreamFlix Branding ─── */}
           <div style={{

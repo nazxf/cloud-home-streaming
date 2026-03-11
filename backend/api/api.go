@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -312,6 +313,7 @@ func manageVideoHandler(w http.ResponseWriter, r *http.Request) {
 		_ = os.Remove(filepath.Join(config.VideoDir, "thumbnails", base+".png"))
 		_ = os.Remove(filepath.Join(config.VideoDir, "thumbnails", base+"_auto_v2.jpg"))
 		_ = db.DeleteVideoMeta(filename)
+		_ = db.DeleteProgressForFilename(filename)
 
 		jsonResponse(w, http.StatusOK, map[string]string{"message": "Video and thumbnail deleted"})
 		return
@@ -352,6 +354,8 @@ func manageVideoHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+
+		_ = db.RenameProgressFilename(filename, newFilename)
 
 		oldBase := strings.TrimSuffix(filename, ext)
 		newTitleBase := strings.TrimSuffix(newFilename, ext)
@@ -614,6 +618,80 @@ func thumbnailHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(svg))
 }
 
+func progressHandler(w http.ResponseWriter, r *http.Request) {
+	filename := utils.ExtractProgressFilenameFromPath(r)
+	if filename == "" || filename == "." {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid filename"})
+		return
+	}
+
+	username, err := getUsernameFromRequest(r)
+	if err != nil {
+		jsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		position, duration, completed, updatedAt, err := db.GetUserProgress(username, filename)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				jsonResponse(w, http.StatusOK, models.ProgressResponse{
+					Filename:  filename,
+					Position:  0,
+					Duration:  0,
+					Completed: false,
+					UpdatedAt: time.Now(),
+				})
+				return
+			}
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "failed to load progress"})
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, models.ProgressResponse{
+			Filename:  filename,
+			Position:  position,
+			Duration:  duration,
+			Completed: completed,
+			UpdatedAt: updatedAt,
+		})
+		return
+
+	case http.MethodPost:
+		var req models.ProgressRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid request"})
+			return
+		}
+
+		position := req.Position
+		if position < 0 {
+			position = 0
+		}
+		duration := req.Duration
+		if duration < 0 {
+			duration = 0
+		}
+		if duration > 0 && position > duration {
+			position = duration
+		}
+		if req.Completed {
+			position = 0
+		}
+
+		if err := db.UpsertUserProgress(username, filename, position, duration, req.Completed); err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "failed to save progress"})
+			return
+		}
+		jsonResponse(w, http.StatusOK, map[string]string{"message": "progress saved"})
+		return
+	default:
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+}
+
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, map[string]string{
 		"status": "ok",
@@ -638,6 +716,7 @@ func SetupRoutes() http.Handler {
 	}))
 	mux.HandleFunc("/api/stream/", authMiddleware(streamHandler))
 	mux.HandleFunc("/api/thumbnail/", authMiddleware(thumbnailHandler))
+	mux.HandleFunc("/api/progress/", authMiddleware(progressHandler))
 
 	frontendDir := "./frontend/dist"
 	if _, err := os.Stat("../frontend/dist"); err == nil {

@@ -231,3 +231,9 @@ func ExtractThumbFilenameFromPath(r *http.Request) string {
 	raw = strings.Trim(raw, "/")
 	return filepath.Base(DecodeEscapedPath(raw))
 }
+
+func ExtractProgressFilenameFromPath(r *http.Request) string {
+	raw := strings.TrimPrefix(r.URL.Path, "/api/progress/")
+	raw = strings.Trim(raw, "/")
+	return filepath.Base(DecodeEscapedPath(raw))
+}
