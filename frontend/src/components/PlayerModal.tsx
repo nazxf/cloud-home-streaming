@@ -22,7 +22,9 @@ import { Video, api, getStreamUrl, getManualThumbnailUrl } from '../api';
 
 interface PlayerModalProps {
   video: Video;
+  videos: Video[];
   onClose: () => void;
+  onSelectVideo: (video: Video) => void;
 }
 
 const TooltipButton: React.FC<{
@@ -45,7 +47,7 @@ const TooltipButton: React.FC<{
   </div>
 );
 
-const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
+const PlayerModal: React.FC<PlayerModalProps> = ({ video, videos, onClose, onSelectVideo }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -75,6 +77,7 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
 
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 });
   const [showSettings, setShowSettings] = useState(false);
+  const [showEpisodes, setShowEpisodes] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
   const [seekAnim, setSeekAnim] = useState({ visible: false, side: '', seconds: 0 });
@@ -93,6 +96,26 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
 
   const streamUrl = getStreamUrl(video);
   const posterUrl = getManualThumbnailUrl(video);
+
+  const isSeries = (video.groupType || '').toLowerCase() === 'series';
+  const episodeList = React.useMemo(() => {
+    if (!isSeries) return [];
+    const seriesTitle = video.seriesTitle || '';
+    return videos
+      .filter((v) => (v.groupType || '').toLowerCase() === 'series' && (v.seriesTitle || '') === seriesTitle)
+      .sort((a, b) => (a.season || 0) - (b.season || 0) || (a.episode || 0) - (b.episode || 0));
+  }, [videos, video]);
+
+  const seasonEpisodes = React.useMemo(() => {
+    if (!isSeries) return [];
+    const season = video.season || 1;
+    return episodeList.filter((v) => (v.season || 1) === season);
+  }, [episodeList, video, isSeries]);
+
+  const currentEpisodeIndex = React.useMemo(() => {
+    if (!isSeries) return -1;
+    return seasonEpisodes.findIndex((v) => v.filename === video.filename);
+  }, [seasonEpisodes, video, isSeries]);
 
   const formatTime = (timeInSeconds: number) => {
     if (isNaN(timeInSeconds)) return '0:00';
@@ -159,6 +182,8 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
         case 'm': e.preventDefault(); toggleMute(); break;
         case 'arrowright': case 'l': e.preventDefault(); skipTime(15); showSeekAnimation('right', 15); break;
         case 'arrowleft': case 'j': e.preventDefault(); skipTime(-15); showSeekAnimation('left', 15); break;
+        case 'n': e.preventDefault(); goNextEpisode(); break;
+        case 'p': e.preventDefault(); goPrevEpisode(); break;
         case 'escape': if (!document.fullscreenElement) requestClose(); break;
         default: break;
       }
@@ -220,6 +245,22 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
     } else {
       el.pause(); setIsPlaying(false); setShowControls(true); setShowCenterPlay(true);
       saveProgress(false);
+    }
+  };
+
+  const goNextEpisode = () => {
+    if (!isSeries || seasonEpisodes.length == 0) return;
+    const nextIndex = currentEpisodeIndex + 1;
+    if (nextIndex >= 0 && nextIndex < seasonEpisodes.length) {
+      onSelectVideo(seasonEpisodes[nextIndex]);
+    }
+  };
+
+  const goPrevEpisode = () => {
+    if (!isSeries || seasonEpisodes.length == 0) return;
+    const prevIndex = currentEpisodeIndex - 1;
+    if (prevIndex >= 0 && prevIndex < seasonEpisodes.length) {
+      onSelectVideo(seasonEpisodes[prevIndex]);
     }
   };
 
@@ -818,7 +859,63 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
             </div>
           )}
 
-          {/* Settings Popup */}
+          {/* Episodes Panel */}
+        {showEpisodes && isSeries && (
+          <div className="animate-menu-pop" style={{
+            position: 'absolute',
+            bottom: '80px',
+            right: '72px',
+            zIndex: 40,
+            background: 'rgba(18,18,18,0.95)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '12px',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            padding: '10px',
+            minWidth: '260px',
+            maxWidth: '320px',
+            maxHeight: '45vh',
+            overflowY: 'auto',
+          }}>
+            <div style={{ padding: '6px 10px 10px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Season {video.season || 1}</div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'white' }}>{video.seriesTitle || 'Series'}</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>{seasonEpisodes.length} episodes</div>
+            </div>
+            <div style={{ display: 'grid', gap: '6px', padding: '8px' }}>
+              {seasonEpisodes.map((ep, idx) => (
+                <button
+                  key={ep.filename}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onSelectVideo(ep); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    border: ep.filename === video.filename ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.08)',
+                    background: ep.filename === video.filename ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.04)',
+                    color: 'white',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>Episode {ep.episode || idx + 1}</span>
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ep.title}</span>
+                  </div>
+                  {ep.filename === video.filename && (
+                    <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700, letterSpacing: '0.4px' }}>PLAYING</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Settings Popup */}
           {showSettings && (
             <div className="animate-menu-pop" style={{
               position: 'absolute',
@@ -1006,7 +1103,7 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
               </TooltipButton>
 
               {/* Next */}
-              <TooltipButton onClick={() => {}} text="Selanjutnya (Shift+N)">
+              <TooltipButton onClick={goNextEpisode} text="Selanjutnya (Shift+N)">
                 <SkipForward fill="currentColor" size={20} style={{ opacity: 0.8 }} />
               </TooltipButton>
 
@@ -1109,6 +1206,13 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, onClose }) => {
               </TooltipButton>
               <TooltipButton onClick={togglePiP} text="Gambar dalam Gambar" className="hidden sm:flex">
                 <PictureInPicture size={22} />
+              </TooltipButton>
+              <TooltipButton onClick={(e) => { e.stopPropagation(); setShowEpisodes(!showEpisodes); setShowSettings(false); }} text="Episodes" className={showEpisodes ? "text-white bg-white/20" : ""}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="4" rx="1" />
+                  <rect x="3" y="10" width="18" height="4" rx="1" />
+                  <rect x="3" y="16" width="18" height="4" rx="1" />
+                </svg>
               </TooltipButton>
               <TooltipButton text="Subtitle/CC">
                 <Subtitles size={22} />

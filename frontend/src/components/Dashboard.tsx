@@ -328,7 +328,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onLogout }) => {
 
             <div className="content-area">
                 {isAdmin && (
-                    <section className="admin-upload-section">
+                    <section id="admin-upload" className="admin-upload-section">
                         <div className="section-header">
                             <h2 className="section-title">Admin Studio</h2>
                             <span className="section-count">Create / Edit / Delete</span>
@@ -451,7 +451,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onLogout }) => {
                     </section>
                 )}
 
-                <section>
+                <section id="all-videos">
                     <div className="section-header">
                         <h2 className="section-title">{searchQuery ? `Results for "${searchQuery}"` : 'All Videos'}</h2>
                         {!loading && <span className="section-count">{filteredVideos.length} {filteredVideos.length === 1 ? 'video' : 'videos'}</span>}
@@ -529,7 +529,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onLogout }) => {
                 </section>
             </div>
 
-            {selectedVideo && <PlayerModal video={selectedVideo} onClose={handleClosePlayer} />}
+            {selectedVideo && <PlayerModal video={selectedVideo} videos={videos} onClose={handleClosePlayer} onSelectVideo={setSelectedVideo} />}
 
             {editingVideo && (
                 <div className="edit-modal-overlay" onClick={closeEditModal}>

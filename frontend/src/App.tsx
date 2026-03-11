@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import LoginPage from './components/LoginPage';
+import LandingPage from './components/LandingPage';
 import Dashboard from './components/Dashboard';
 
 function App() {
@@ -21,7 +21,7 @@ function App() {
     };
 
     if (!token) {
-        return <LoginPage onLogin={handleLogin} />;
+        return <LandingPage onLogin={handleLogin} />;
     }
 
     return <Dashboard username={username} onLogout={handleLogout} />;

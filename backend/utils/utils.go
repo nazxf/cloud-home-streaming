@@ -138,6 +138,32 @@ func GenerateThumbnailForVideo(filename string) error {
 		return fmt.Errorf("video not found")
 	}
 
+	// Try scene-change detection first (more likely to find a good frame).
+	// Fallback to duration-based seek if no scene change is detected.
+	sceneThreshold := "0.35"
+	if _, err := os.Stat(thumbPath); err == nil {
+		return nil
+	}
+
+	sceneCtx, cancelScene := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelScene()
+
+	sceneCmd := exec.CommandContext(sceneCtx, ffmpegPath,
+		"-y",
+		"-i", inputPath,
+		"-vf", fmt.Sprintf("select='gt(scene,%s)'", sceneThreshold),
+		"-frames:v", "1",
+		"-vsync", "vfr",
+		"-q:v", "2",
+		thumbPath,
+	)
+	sceneOut, sceneErr := sceneCmd.CombinedOutput()
+	if sceneErr == nil {
+		if _, err := os.Stat(thumbPath); err == nil {
+			return nil
+		}
+	}
+
 	// Pick a more interesting frame from around 35% of the video duration.
 	seekPos := "3"
 	if ffprobePath, probeErr := exec.LookPath("ffprobe"); probeErr == nil {
@@ -178,6 +204,9 @@ func GenerateThumbnailForVideo(filename string) error {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		_ = os.Remove(thumbPath)
+		if sceneErr != nil {
+			return fmt.Errorf("ffmpeg thumbnail failed: %s", strings.TrimSpace(string(sceneOut)))
+		}
 		return fmt.Errorf("ffmpeg thumbnail failed: %s", strings.TrimSpace(string(output)))
 	}
 
