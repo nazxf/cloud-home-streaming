@@ -1,0 +1,29 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Go
+backend/main
+backend/streamflix.exe
+
+# Build directories
+frontend/dist/
+frontend/build/
+
+# Media / Videos
+backend/videos/*.mkv
+backend/videos/*.mp4
+backend/videos/*.avi
+backend/videos/*.webm
+
+# Thumbnails (generated)
+backend/videos/*-thumb.jpg
+
+# Environment files
+.env
+.env.local
+
+# OS generated files
+.DS_Store
+Thumbs.db
