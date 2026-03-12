@@ -1,0 +1,171 @@
+/* â”€â”€â”€ Upload Form â”€â”€â”€ */
+.admin-upload-form {
+  background: linear-gradient(145deg, rgba(30, 30, 30, 0.95), rgba(18, 18, 18, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 24px;
+}
+
+.admin-upload-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.admin-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-form-input {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.admin-form-input:focus {
+  border-color: rgba(229, 9, 20, 0.5);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.12);
+}
+
+.admin-form-input::placeholder {
+  color: var(--text-muted);
+}
+
+.admin-form-input.compact {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.admin-file-picker {
+  padding: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.admin-file-picker:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* â”€â”€â”€ Dropzone â”€â”€â”€ */
+.admin-dropzone {
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 40px 24px;
+  background: rgba(255, 255, 255, 0.015);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.admin-dropzone.active {
+  border-color: var(--netflix-red);
+  background: rgba(229, 9, 20, 0.06);
+}
+
+.admin-dropzone-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.admin-dropzone-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* â”€â”€â”€ Bulk Queue â”€â”€â”€ */
+.admin-bulk-queue {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-bulk-row {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 8px;
+}
+
+.admin-bulk-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-bulk-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.admin-bulk-size {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-bulk-progress-wrap {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.admin-bulk-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e50914, #ff5a5f);
+  transition: width 0.2s;
+}
+
+.admin-bulk-status {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admin-bulk-status.success { color: #57d48f; }
+.admin-bulk-status.error { color: #ff7d7d; }
+.admin-bulk-status.uploading { color: #f5c467; }
+.admin-bulk-status.waiting { color: var(--text-muted); }
+
+.admin-bulk-error {
+  font-size: 11px;
+  color: #ff8c8c;
+}

@@ -3,7 +3,7 @@
 @import "tailwindcss";
 @import "./components.css";
 @import "./custom-variants.css";
-@import "./admin.css";
+@import "./styles/admin/index.css";
 @custom-variant dark (&:is(.dark *));
 
 *,
