@@ -481,11 +481,12 @@
 
 /* Landing Page */
 .landing-page {
-  background: radial-gradient(circle at top, rgba(229, 9, 20, 0.18), transparent 45%),
-    linear-gradient(180deg, rgba(15, 15, 15, 0.95) 0%, rgba(12, 12, 12, 0.98) 100%);
+  background: radial-gradient(ellipse at 20% -10%, rgba(229, 9, 20, 0.14), transparent 50%),
+    var(--bg-primary);
   min-height: 100vh;
   color: var(--text-primary);
-  padding-bottom: 80px;
+  padding-bottom: 96px;
+  overflow: hidden;
 }
 
 
@@ -497,15 +498,17 @@
 }
 
 .landing-logo {
-  font-size: 22px;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
   font-weight: 800;
   color: var(--netflix-red);
-  letter-spacing: -0.5px;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
 }
 
 .landing-logo span {
   color: var(--text-primary);
+  font-weight: 300;
 }
 
 .landing-actions {
@@ -545,50 +548,80 @@
 
 .landing-hero {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 40px;
-  padding: 60px 48px 40px;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  padding: 80px 48px 64px;
   align-items: center;
+  position: relative;
 }
 
 .landing-hero-content {
-  max-width: 560px;
+  max-width: 600px;
 }
 
 .landing-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(229, 9, 20, 0.16);
-  border: 1px solid rgba(229, 9, 20, 0.35);
+  background: rgba(229, 9, 20, 0.1);
+  border: 1px solid rgba(229, 9, 20, 0.25);
   color: var(--netflix-red);
   padding: 6px 14px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
+  animation: fadeSlideUp 600ms var(--ease-out-expo) both;
 }
 
 .landing-hero-title {
-  font-size: clamp(32px, 4vw, 60px);
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 4.5vw, 4rem);
   font-weight: 800;
-  line-height: 1.1;
-  margin-bottom: 14px;
+  line-height: 1.08;
+  margin-bottom: 20px;
+  letter-spacing: -0.02em;
+  animation: fadeSlideUp 600ms var(--ease-out-expo) 80ms both;
 }
 
 .landing-hero-subtitle {
-  font-size: 16px;
+  font-size: 1.05rem;
   color: var(--text-secondary);
-  line-height: 1.6;
-  margin-bottom: 26px;
+  line-height: 1.7;
+  margin-bottom: 32px;
+  max-width: 48ch;
+  animation: fadeSlideUp 600ms var(--ease-out-expo) 160ms both;
 }
 
 .landing-hero-actions {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
+  animation: fadeSlideUp 600ms var(--ease-out-expo) 240ms both;
+}
+
+/* Stagger entrance animation */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-badge,
+  .landing-hero-title,
+  .landing-hero-subtitle,
+  .landing-hero-actions,
+  .landing-hero-visual {
+    animation: none !important;
+  }
 }
 
 .landing-cta {
@@ -727,33 +760,55 @@
 }
 
 .landing-section {
-  padding: 40px 48px;
+  padding: 64px 48px;
 }
 
 .landing-section-header h2 {
-  font-size: 26px;
-  margin-bottom: 8px;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 600;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
 }
 
 .landing-section-header p {
   color: var(--text-secondary);
-  max-width: 520px;
+  max-width: 48ch;
+  font-size: 0.95rem;
 }
 
 .feature-grid {
-  margin-top: 24px;
+  margin-top: 32px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
 }
 
 .feature-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 18px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
+  transition: transform 0.3s var(--ease-out-quart), border-color 0.3s var(--ease-out-quart);
+}
+
+.feature-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(229, 9, 20, 0.3);
+}
+
+.feature-card h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.feature-card p {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.6;
 }
 
 .feature-icon {
@@ -781,34 +836,46 @@
 }
 
 .steps-grid {
-  margin-top: 24px;
+  margin-top: 32px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
 }
 
 .step-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 18px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
+}
+
+.step-card h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.step-card p {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.6;
 }
 
 .step-number {
-  font-size: 14px;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
   color: var(--netflix-red);
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .stats-strip {
-   margin: 20px 48px 0;
-  padding: 16px 24px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 32px 48px 0;
+  padding: 20px 32px;
+  border-radius: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -850,9 +917,9 @@
 }
 
 .landing-footer {
-  padding: 30px 48px 40px;
+  padding: 48px 48px 56px;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 0.85rem;
   text-align: center;
 }
 
@@ -864,6 +931,13 @@
     padding-right: 24px;
   }
 
+  .landing-hero {
+    grid-template-columns: 1fr;
+    padding-top: 48px;
+    padding-bottom: 32px;
+    gap: 32px;
+  }
+
   .stats-strip {
     margin-left: 24px;
     margin-right: 24px;
@@ -871,6 +945,8 @@
 
   .mockup {
     grid-template-columns: 120px 1fr;
+    max-width: 400px;
+    margin: 0 auto;
   }
 }
 
@@ -994,9 +1070,11 @@
 }
 
 .cta-banner-content h2 {
-  font-size: clamp(24px, 3vw, 36px);
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
   font-weight: 800;
   margin-bottom: 10px;
+  letter-spacing: -0.01em;
 }
 
 .cta-banner-content p {
