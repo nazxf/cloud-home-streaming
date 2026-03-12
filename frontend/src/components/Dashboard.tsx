@@ -312,7 +312,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onLogout }) => {
 
     return (
         <div>
-            <Navbar username={username} onLogout={onLogout} onSearch={setSearchQuery} />
+            <Navbar username={username} isAdmin={isAdmin} onLogout={onLogout} onSearch={setSearchQuery} />
 
             <section className="hero">
                 <div className="hero-content">

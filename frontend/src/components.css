@@ -518,7 +518,8 @@
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 15px;
+  padding: 12px;
   cursor: pointer;
 }
 
@@ -526,11 +527,14 @@
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: var(--text-primary);
-  padding: 8px 14px;
+  padding: 12px 18px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
   transition: var(--transition);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .landing-ghost:hover {
@@ -596,6 +600,10 @@
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .landing-cta:hover {
@@ -611,6 +619,10 @@
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .landing-cta-secondary:hover {
@@ -745,6 +757,7 @@
 }
 
 .feature-icon {
+  position: relative;
   width: 36px;
   height: 36px;
   border-radius: 12px;
@@ -784,14 +797,14 @@
 }
 
 .step-number {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--netflix-red);
   font-weight: 700;
   letter-spacing: 1px;
 }
 
 .stats-strip {
-  margin: 20px 48px 0;
+   margin: 20px 48px 0;
   padding: 16px 24px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
@@ -805,14 +818,14 @@
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .stat-value {
   color: var(--netflix-red);
-  font-size: 10px;
+  font-size: 20px;
 }
 
 .landing-signin {
@@ -839,7 +852,7 @@
 .landing-footer {
   padding: 30px 48px 40px;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 14px;
   text-align: center;
 }
 
@@ -864,18 +877,47 @@
 @media (max-width: 700px) {
   .landing-header {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .landing-actions {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .landing-link, .landing-ghost {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
   }
 
   .stats-strip {
     flex-direction: column;
     align-items: flex-start;
+    gap: 16px;
   }
 
-  .landing-actions {
-    width: 100%;
-    justify-content: space-between;
+  .mockup {
+    grid-template-columns: 1fr;
+    max-width: 320px;
+  }
+
+  .mockup-sidebar {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 12px;
+  }
+
+  .mockup-item {
+    width: 30px;
+  }
+
+  .floating-card {
+    display: none; /* Hide floating cards on small mobile as they clutter */
   }
 }
 
@@ -917,3 +959,118 @@
   50% { transform: translateY(-8px); }
   100% { transform: translateY(0px); }
 }
+
+/* ─── Landing CTA Banner ─── */
+.landing-cta-banner {
+  margin: 60px 48px 0;
+  padding: 60px 40px;
+  border-radius: 20px;
+  background:
+    radial-gradient(ellipse at 30% 50%, rgba(229, 9, 20, 0.2), transparent 60%),
+    radial-gradient(ellipse at 70% 50%, rgba(229, 9, 20, 0.12), transparent 60%),
+    rgba(18, 18, 18, 0.9);
+  border: 1px solid rgba(229, 9, 20, 0.2);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-cta-banner::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(from 180deg, rgba(229, 9, 20, 0.08), transparent 25%, rgba(229, 9, 20, 0.05), transparent 50%);
+  animation: bannerGlow 12s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes bannerGlow {
+  to { transform: rotate(360deg); }
+}
+
+.cta-banner-content {
+  position: relative;
+  z-index: 1;
+}
+
+.cta-banner-content h2 {
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.cta-banner-content p {
+  color: var(--text-secondary);
+  font-size: 15px;
+  margin-bottom: 24px;
+}
+
+.landing-cta-large {
+  padding: 16px 36px;
+  font-size: 16px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ─── Landing badge dot ─── */
+.landing-badge-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--netflix-red);
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 8px rgba(229, 9, 20, 0.6);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* ─── Landing hero accent ─── */
+.landing-hero-accent {
+  color: var(--netflix-red);
+  text-shadow: 0 0 40px rgba(229, 9, 20, 0.35);
+}
+
+/* ─── Login Back Button ─── */
+.login-back-btn {
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: var(--font);
+  backdrop-filter: blur(8px);
+  min-height: 44px;
+}
+
+.login-back-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateX(-2px);
+}
+
+@media (max-width: 900px) {
+  .landing-cta-banner {
+    margin-left: 24px;
+    margin-right: 24px;
+    padding: 40px 24px;
+  }
+}
+

@@ -1,54 +1,46 @@
-import React, { useState, useRef } from 'react';
-import { api } from '../api';
+import React, { useRef } from 'react';
 
 interface LandingPageProps {
-  onLogin: (token: string, username: string) => void;
+  onGoToLogin: () => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const loginRef = useRef<HTMLDivElement>(null);
+const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
   const howRef = useRef<HTMLDivElement>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim() || !password.trim()) {
-      setError('Please enter username and password.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      const res = await api.login(username.trim(), password);
-      onLogin(res.token, res.username);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const featRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="landing-page">
+      {/* ── Header ── */}
       <header className="landing-header">
         <div className="landing-logo">Stream<span>Flix</span></div>
         <div className="landing-actions">
+          <button className="landing-link" type="button" onClick={() => featRef.current?.scrollIntoView({ behavior: 'smooth' })}>Features</button>
           <button className="landing-link" type="button" onClick={() => howRef.current?.scrollIntoView({ behavior: 'smooth' })}>How It Works</button>
-          <button className="landing-ghost" type="button" onClick={() => loginRef.current?.scrollIntoView({ behavior: 'smooth' })}>Sign In</button>
+          <button className="landing-ghost" type="button" onClick={onGoToLogin}>Sign In</button>
         </div>
       </header>
 
+      {/* ── Hero ── */}
       <section className="landing-hero">
         <div className="landing-hero-content">
-          <div className="landing-badge">Private Library</div>
-          <h1 className="landing-hero-title">Your Private Cinema,<br />On Your Terms</h1>
-          <p className="landing-hero-subtitle">Stream, organize, and watch your personal video library anywhere on your network.</p>
+          <div className="landing-badge">
+            <span className="landing-badge-dot" />
+            Private &amp; Local
+          </div>
+          <h1 className="landing-hero-title">
+            Your Personal<br /><span className="landing-hero-accent">Cinema</span>, On Your Terms
+          </h1>
+          <p className="landing-hero-subtitle">
+            Stream, organize, and watch your entire video library anywhere on your home network. Zero ads, zero tracking, 100% private.
+          </p>
           <div className="landing-hero-actions">
-            <button className="landing-cta" type="button" onClick={() => loginRef.current?.scrollIntoView({ behavior: 'smooth' })}>Start Streaming</button>
-            <button className="landing-cta-secondary" type="button" onClick={() => howRef.current?.scrollIntoView({ behavior: 'smooth' })}>See How It Works</button>
+            <button className="landing-cta" type="button" onClick={onGoToLogin}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white" style={{ marginRight: 8 }}><polygon points="5,3 19,12 5,21" /></svg>
+              Get Started
+            </button>
+            <button className="landing-cta-secondary" type="button" onClick={() => howRef.current?.scrollIntoView({ behavior: 'smooth' })}>
+              Learn More
+            </button>
           </div>
         </div>
 
@@ -64,9 +56,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
             <div className="mockup-screen">
               <div className="mockup-video" />
               <div className="mockup-controls">
-                <span />
-                <span />
-                <span />
+                <span /><span /><span />
               </div>
             </div>
           </div>
@@ -85,7 +75,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
         </div>
       </section>
 
-      <section className="landing-section">
+      {/* ── Features ── */}
+      <section ref={featRef} className="landing-section">
         <div className="landing-section-header">
           <h2>Feature Highlights</h2>
           <p>Built for personal libraries, fast streaming, and private use.</p>
@@ -93,8 +84,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
         <div className="feature-grid">
           {[
             {
-              title: 'Fast Local Streaming',
-              desc: 'Optimized for your home network with instant playback.',
+              title: 'Blazing Fast Streaming',
+              desc: 'Optimized for your home network with instant, buffer-free playback at full quality.',
               icon: (
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 12h6l2-4 4 8 2-4h4" />
@@ -102,8 +93,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
               ),
             },
             {
-              title: 'Auto Thumbnails & Episode Detection',
-              desc: 'Smart scanning turns filenames into episodes.',
+              title: 'Smart Episode Detection',
+              desc: 'Auto-detects series, seasons, and episodes from your filenames — no manual sorting needed.',
               icon: (
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="4" width="18" height="14" rx="2" />
@@ -113,8 +104,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
               ),
             },
             {
-              title: 'Continue Watching per User',
-              desc: 'Resume exactly where you left off, per account.',
+              title: 'Continue Watching',
+              desc: 'Resume exactly where you left off, independently per user account.',
               icon: (
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="9" />
@@ -123,8 +114,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
               ),
             },
             {
-              title: 'Admin Studio for Uploads',
-              desc: 'Batch upload, rename, and manage your library.',
+              title: 'Admin Studio',
+              desc: 'Batch upload, rename, manage thumbnails, and organize your entire library with ease.',
               icon: (
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 3v12" />
@@ -143,6 +134,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
         </div>
       </section>
 
+      {/* ── How It Works ── */}
       <section ref={howRef} className="landing-section how-it-works">
         <div className="landing-section-header">
           <h2>How It Works</h2>
@@ -150,9 +142,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
         </div>
         <div className="steps-grid">
           {[
-            { step: '01', title: 'Upload video', desc: 'Drag & drop your videos or upload in bulk.' },
-            { step: '02', title: 'Auto organize', desc: 'Series and episodes are detected automatically.' },
-            { step: '03', title: 'Watch anywhere', desc: 'Stream on any device connected to your network.' },
+            { step: '01', title: 'Upload Your Videos', desc: 'Drag & drop your videos or upload in bulk from the admin control panel.' },
+            { step: '02', title: 'Auto-Organized', desc: 'Series and episodes are detected from filenames and sorted automatically.' },
+            { step: '03', title: 'Watch Anywhere', desc: 'Stream on any device connected to your local network — phone, tablet, or PC.' },
           ].map((item) => (
             <div key={item.step} className="step-card">
               <span className="step-number">{item.step}</span>
@@ -163,59 +155,32 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin }) => {
         </div>
       </section>
 
+      {/* ── Stats ── */}
       <section className="stats-strip">
-        {[{ label: '0 ads' }, { label: 'Local-first' }, { label: 'Multi-user support' }].map((item) => (
+        {[
+          { icon: '🚫', label: 'Zero Ads' },
+          { icon: '🏠', label: 'Local-First' },
+          { icon: '👥', label: 'Multi-User' },
+        ].map((item) => (
           <div key={item.label} className="stat-item">
-            <span className="stat-value">?</span>
+            <span className="stat-value">{item.icon}</span>
             <span className="stat-label">{item.label}</span>
           </div>
         ))}
       </section>
 
-      <section ref={loginRef} className="landing-section landing-signin">
-        <div className="landing-section-header">
-          <h2>Start Streaming</h2>
-          <p>Sign in to your private StreamFlix library.</p>
-        </div>
-        <div className="signin-card">
-          {error && <div className="login-error">?????? {error}</div>}
-          <form onSubmit={handleSubmit} noValidate>
-            <div className="form-group">
-              <label className="form-label" htmlFor="landing-username">Username</label>
-              <input
-                id="landing-username"
-                className="form-input"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                autoComplete="username"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="landing-password">Password</label>
-              <input
-                id="landing-password"
-                className="form-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-              />
-            </div>
-            <button type="submit" className="btn-login" disabled={loading}>
-              {loading ? 'Signing in...' : 'Start Streaming'}
-            </button>
-          </form>
-          <div className="signin-hints">
-            <span>Demo: admin / admin123</span>
-            <span>user / password</span>
-          </div>
+      {/* ── CTA Banner ── */}
+      <section className="landing-cta-banner">
+        <div className="cta-banner-content">
+          <h2>Ready to Stream?</h2>
+          <p>Sign in and start watching your private library now.</p>
+          <button className="landing-cta landing-cta-large" type="button" onClick={onGoToLogin}>
+            Sign In to StreamFlix
+          </button>
         </div>
       </section>
 
-      <footer className="landing-footer">? 2026 StreamFlix. Private streaming, personal library.</footer>
+      <footer className="landing-footer">© 2026 StreamFlix. Private streaming, personal library.</footer>
     </div>
   );
 };

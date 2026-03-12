@@ -559,7 +559,8 @@ func thumbnailHandler(w http.ResponseWriter, r *http.Request) {
 	manualPng := filepath.Join(config.VideoDir, "thumbnails", base+".png")
 	autoJpg := filepath.Join(config.VideoDir, "thumbnails", base+"_auto_v2.jpg")
 
-	if mode == "manual" {
+	switch mode {
+	case "manual":
 		if _, err := os.Stat(manualJpg); err == nil {
 			http.ServeFile(w, r, manualJpg)
 			return
@@ -568,7 +569,7 @@ func thumbnailHandler(w http.ResponseWriter, r *http.Request) {
 			http.ServeFile(w, r, manualPng)
 			return
 		}
-	} else if mode == "auto" {
+	case "auto":
 		if _, err := os.Stat(autoJpg); err == nil {
 			http.ServeFile(w, r, autoJpg)
 			return
@@ -579,7 +580,7 @@ func thumbnailHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-	} else {
+	default:
 		if _, err := os.Stat(manualJpg); err == nil {
 			http.ServeFile(w, r, manualJpg)
 			return

@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 
 interface NavbarProps {
     username: string;
+    isAdmin: boolean;
     onLogout: () => void;
     onSearch: (query: string) => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ username, onLogout, onSearch }) => {
+const Navbar: React.FC<NavbarProps> = ({ username, isAdmin, onLogout, onSearch }) => {
     const [scrolled, setScrolled] = useState(false);
     const [query, setQuery] = useState('');
     const [menuOpen, setMenuOpen] = useState(false);
@@ -56,7 +57,9 @@ const Navbar: React.FC<NavbarProps> = ({ username, onLogout, onSearch }) => {
                     {menuOpen && (
                         <div className="nav-menu-panel">
                             <button type="button" className="nav-menu-item" onClick={() => { setMenuOpen(false); document.getElementById('all-videos')?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>All Videos</button>
-                            <button type="button" className="nav-menu-item" onClick={() => { setMenuOpen(false); document.getElementById('admin-upload')?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>Admin Studio</button>
+                            {isAdmin && (
+                                <button type="button" className="nav-menu-item" onClick={() => { setMenuOpen(false); document.getElementById('admin-upload')?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>Admin Studio</button>
+                            )}
                         </div>
                     )}
                 </button>
@@ -86,12 +89,14 @@ const Navbar: React.FC<NavbarProps> = ({ username, onLogout, onSearch }) => {
             </div>
 
             <div className="navbar-right">
-                <button className="nav-icon-btn" type="button" aria-label="Create" onClick={handleCreateClick}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 5v14" />
-                        <path d="M5 12h14" />
-                    </svg>
-                </button>
+                {isAdmin && (
+                    <button className="nav-icon-btn" type="button" aria-label="Create" onClick={handleCreateClick}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                        </svg>
+                    </button>
+                )}
 
                 <div className="navbar-user">
                     <div className="navbar-avatar">{username.charAt(0).toUpperCase()}</div>

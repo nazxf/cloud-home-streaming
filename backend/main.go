@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +13,39 @@ import (
 	"streamflix/db"
 	"streamflix/utils"
 )
+
+func printBanner(localIP string) {
+	const red = "\033[31m"
+	const white = "\033[97m"
+	const dim = "\033[90m"
+	const cyan = "\033[36m"
+	const reset = "\033[0m"
+	const bold = "\033[1m"
+
+	fmt.Println()
+	fmt.Println(red + "  ███████╗████████╗██████╗ ███████╗ █████╗ ███╗   ███╗" + reset)
+	fmt.Println(red + "  ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██╔══██╗████╗ ████║" + reset)
+	fmt.Println(red + "  ███████╗   ██║   ██████╔╝█████╗  ███████║██╔████╔██║" + reset)
+	fmt.Println(red + "  ╚════██║   ██║   ██╔══██╗██╔══╝  ██╔══██║██║╚██╔╝██║" + reset)
+	fmt.Println(red + "  ███████║   ██║   ██║  ██║███████╗██║  ██║██║ ╚═╝ ██║" + reset)
+	fmt.Println(red + "  ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝" + reset)
+	fmt.Println(white + bold + "              ███████╗██╗     ██╗██╗  ██╗" + reset)
+	fmt.Println(white + bold + "              ██╔════╝██║     ██║╚██╗██╔╝" + reset)
+	fmt.Println(white + bold + "              █████╗  ██║     ██║ ╚███╔╝" + reset)
+	fmt.Println(white + bold + "              ██╔══╝  ██║     ██║ ██╔██╗" + reset)
+	fmt.Println(white + bold + "              ██║     ███████╗██║██╔╝ ██╗" + reset)
+	fmt.Println(white + bold + "              ╚═╝     ╚══════╝╚═╝╚═╝  ╚═╝" + reset)
+	fmt.Println()
+	fmt.Println(dim + "         Private Streaming · Local Cinema" + reset)
+	fmt.Println()
+	fmt.Println(dim + "  ─────────────────────────────────────────────────" + reset)
+	fmt.Printf(cyan+"  ▸ Local:   "+reset+white+"http://localhost%s\n"+reset, config.Port)
+	fmt.Printf(cyan+"  ▸ Network: "+reset+white+"http://%s%s\n"+reset, localIP, config.Port)
+	fmt.Printf(cyan+"  ▸ Videos:  "+reset+dim+"%s\n"+reset, config.VideoDir)
+	fmt.Printf(cyan+"  ▸ DB:      "+reset+dim+"%s\n"+reset, config.DBPath)
+	fmt.Println(dim + "  ─────────────────────────────────────────────────" + reset)
+	fmt.Println()
+}
 
 func main() {
 	if err := os.MkdirAll(config.VideoDir, 0755); err != nil {
@@ -29,12 +63,7 @@ func main() {
 	handler := api.SetupRoutes()
 	localIP := utils.GetLocalIP()
 
-	log.Printf("StreamFlix server started")
-	log.Printf("Local:   http://localhost%s", config.Port)
-	log.Printf("Network: http://%s%s", localIP, config.Port)
-	log.Printf("Videos:  %s", config.VideoDir)
-	log.Printf("SQLite:  %s", config.DBPath)
-	log.Printf("Credentials: admin/admin123 and user/password")
+	printBanner(localIP)
 
 	server := &http.Server{
 		Addr:         config.Port,
