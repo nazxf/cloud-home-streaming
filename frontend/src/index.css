@@ -1,7 +1,7 @@
 /* â”€â”€â”€ Reset & Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 @import "tailwindcss";
-@import "./components.css";
+@import "./styles/components/index.css";
 @import "./custom-variants.css";
 @import "./styles/admin/index.css";
 @custom-variant dark (&:is(.dark *));
