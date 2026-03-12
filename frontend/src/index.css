@@ -6,6 +6,28 @@
 @import "./styles/admin/index.css";
 @custom-variant dark (&:is(.dark *));
 
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
 *,
 *::before,
 *::after {
@@ -37,6 +59,28 @@
   --font-display: "Fraunces", Georgia, serif;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* ─── shadcn/Tailwind design tokens (dark theme) ─── */
+  --background: #110f0e;
+  --foreground: #f5f0eb;
+  --popover: #1a1a1a;
+  --popover-foreground: #f5f0eb;
+  --card: #1e1b18;
+  --card-foreground: #f5f0eb;
+  --primary: #e50914;
+  --primary-foreground: #ffffff;
+  --secondary: #2a2622;
+  --secondary-foreground: #f5f0eb;
+  --muted: #2e2a26;
+  --muted-foreground: #a39e97;
+  --accent: #2a2622;
+  --accent-foreground: #f5f0eb;
+  --destructive: #e50914;
+  --destructive-foreground: #ffffff;
+  --border: #2e2a26;
+  --input: #2e2a26;
+  --ring: #e50914;
+  --radius: 0.5rem;
 }
 
 html {

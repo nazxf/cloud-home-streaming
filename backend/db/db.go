@@ -29,6 +29,12 @@ func InitDB() error {
 		return err
 	}
 
+	// Add new columns (ignore errors if they already exist)
+	_, _ = DB.Exec(`ALTER TABLE video_meta ADD COLUMN content_type TEXT DEFAULT 'movie'`)
+	_, _ = DB.Exec(`ALTER TABLE video_meta ADD COLUMN series_title TEXT DEFAULT ''`)
+	_, _ = DB.Exec(`ALTER TABLE video_meta ADD COLUMN season INTEGER DEFAULT 0`)
+	_, _ = DB.Exec(`ALTER TABLE video_meta ADD COLUMN episode INTEGER DEFAULT 0`)
+
 	if _, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS user_progress (
 			username TEXT NOT NULL,
@@ -46,16 +52,34 @@ func InitDB() error {
 	return nil
 }
 
-func UpsertVideoTitle(filename, title string) error {
-	if strings.TrimSpace(filename) == "" || strings.TrimSpace(title) == "" {
+type VideoMeta struct {
+	Filename    string
+	Title       string
+	ContentType string
+	SeriesTitle string
+	Season      int
+	Episode     int
+}
+
+func UpsertVideoMeta(meta VideoMeta) error {
+	if strings.TrimSpace(meta.Filename) == "" || strings.TrimSpace(meta.Title) == "" {
 		return nil
 	}
+	if meta.ContentType == "" {
+		meta.ContentType = "movie"
+	}
 	_, err := DB.Exec(`
-		INSERT INTO video_meta (filename, title, updated_at)
-		VALUES (?, ?, CURRENT_TIMESTAMP)
+		INSERT INTO video_meta (filename, title, content_type, series_title, season, episode, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT(filename)
-		DO UPDATE SET title=excluded.title, updated_at=CURRENT_TIMESTAMP
-	`, filename, title)
+		DO UPDATE SET 
+			title=excluded.title, 
+			content_type=excluded.content_type,
+			series_title=excluded.series_title,
+			season=excluded.season,
+			episode=excluded.episode,
+			updated_at=CURRENT_TIMESTAMP
+	`, meta.Filename, meta.Title, meta.ContentType, meta.SeriesTitle, meta.Season, meta.Episode)
 	return err
 }
 
@@ -64,18 +88,18 @@ func DeleteVideoMeta(filename string) error {
 	return err
 }
 
-func LoadVideoTitles() map[string]string {
-	result := map[string]string{}
-	rows, err := DB.Query(`SELECT filename, title FROM video_meta`)
+func LoadVideoMeta() map[string]VideoMeta {
+	result := map[string]VideoMeta{}
+	rows, err := DB.Query(`SELECT filename, title, coalesce(content_type, 'movie'), coalesce(series_title, ''), coalesce(season, 0), coalesce(episode, 0) FROM video_meta`)
 	if err != nil {
 		return result
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var filename, title string
-		if err := rows.Scan(&filename, &title); err == nil {
-			result[filename] = title
+		var meta VideoMeta
+		if err := rows.Scan(&meta.Filename, &meta.Title, &meta.ContentType, &meta.SeriesTitle, &meta.Season, &meta.Episode); err == nil {
+			result[meta.Filename] = meta
 		}
 	}
 	return result

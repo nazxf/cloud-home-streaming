@@ -20,7 +20,8 @@ type Video struct {
 	SeriesTitle string    `json:"seriesTitle"`
 	Season      int       `json:"season"`
 	Episode     int       `json:"episode"`
-	GroupType   string    `json:"groupType"`
+	GroupType   string    `json:"groupType"` // "movie" or "series" based on ContentType
+	ContentType string    `json:"contentType"`
 }
 
 type LoginRequest struct {
@@ -29,7 +30,11 @@ type LoginRequest struct {
 }
 
 type EditVideoRequest struct {
-	Title string `json:"title"`
+	Title       string `json:"title"`
+	ContentType string `json:"contentType"`
+	SeriesTitle string `json:"seriesTitle"`
+	Season      int    `json:"season"`
+	Episode     int    `json:"episode"`
 }
 
 type LoginResponse struct {

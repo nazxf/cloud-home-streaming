@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import VideoCard from './VideoCard';
 import PlayerModal from './PlayerModal';
 import { Video, api, getManualThumbnailUrl } from '../api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from './ui/command';
+import { Check, ChevronsUpDown } from 'lucide-react';
 
 interface AdminDashboardProps {
     username: string;
@@ -19,6 +23,7 @@ interface BulkUploadItem {
     progress: number;
     status: BulkStatus;
     error?: string;
+    episode?: number;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onSwitchToViewer }) => {
@@ -34,6 +39,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
 
     // Upload state
     const [uploadTitle, setUploadTitle] = useState('');
+    const [uploadContentType, setUploadContentType] = useState<'movie' | 'series'>('movie');
+    const [uploadSeriesTitle, setUploadSeriesTitle] = useState('');
+    const [uploadComboboxOpen, setUploadComboboxOpen] = useState(false);
+    const [uploadSeason, setUploadSeason] = useState<number>(1);
+    const [uploadEpisode, setUploadEpisode] = useState<number>(1);
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
@@ -44,6 +54,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
 
     // Bulk upload state
     const bulkInputRef = useRef<HTMLInputElement | null>(null);
+    const [bulkContentType, setBulkContentType] = useState<'movie' | 'series'>('movie');
+    const [bulkSeriesTitle, setBulkSeriesTitle] = useState('');
+    const [bulkComboboxOpen, setBulkComboboxOpen] = useState(false);
+    const [bulkSeason, setBulkSeason] = useState<number>(1);
+    const [bulkStartEpisode, setBulkStartEpisode] = useState<number>(1);
     const [bulkItems, setBulkItems] = useState<BulkUploadItem[]>([]);
     const [bulkRunning, setBulkRunning] = useState(false);
     const [dragActive, setDragActive] = useState(false);
@@ -51,9 +66,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
     // Edit state
     const [editingVideo, setEditingVideo] = useState<Video | null>(null);
     const [editTitle, setEditTitle] = useState('');
+    const [editContentType, setEditContentType] = useState<'movie' | 'series'>('movie');
+    const [editSeriesTitle, setEditSeriesTitle] = useState('');
+    const [editComboboxOpen, setEditComboboxOpen] = useState(false);
+    const [editSeason, setEditSeason] = useState<number>(1);
+    const [editEpisode, setEditEpisode] = useState<number>(1);
     const [editThumbnail, setEditThumbnail] = useState<File | null>(null);
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError] = useState('');
+
+
+    const existingSeries = useMemo(() => {
+        const set = new Set<string>();
+        videos.forEach(v => {
+            if (v.seriesTitle) set.add(v.seriesTitle);
+        });
+        return Array.from(set).sort();
+    }, [videos]);
 
     const fetchVideos = useCallback(async () => {
         setLoading(true);
@@ -125,8 +154,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
         setUploadSuccess('');
     };
 
-    const clearUploadForm = () => {
-        setUploadTitle('');
+    const clearUploadForm = (resetAll: boolean | React.MouseEvent = true) => {
+        if (resetAll === true || (typeof resetAll !== 'boolean')) {
+            setUploadTitle('');
+            setUploadContentType('movie');
+            setUploadSeriesTitle('');
+            setUploadSeason(1);
+            setUploadEpisode(1);
+        } else {
+            setUploadTitle('');
+        }
         setUploadFile(null);
         setUploadThumbnailFile(null);
         setUploadError('');
@@ -137,16 +174,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!uploadFile) { setUploadError('Please choose a video file first.'); return; }
+        if (uploadContentType === 'series' && !uploadSeriesTitle.trim()) {
+            setUploadError('Series title is required for episodes.');
+            return;
+        }
         setUploading(true);
         setUploadError('');
         setUploadSuccess('');
         try {
-            const result = await api.uploadVideo(uploadFile, uploadTitle);
+            const result = await api.uploadVideo(uploadFile, uploadTitle, {
+                contentType: uploadContentType,
+                seriesTitle: uploadSeriesTitle,
+                season: uploadSeason,
+                episode: uploadEpisode,
+            });
             if (uploadThumbnailFile) {
                 await api.uploadThumbnail(result.filename, uploadThumbnailFile);
             }
             setUploadSuccess(uploadThumbnailFile ? 'Video and thumbnail uploaded successfully.' : (result.message || 'Video uploaded successfully.'));
-            clearUploadForm();
+            
+            if (uploadContentType === 'series') {
+                setUploadEpisode(prev => prev + 1);
+                clearUploadForm(false);
+            } else {
+                clearUploadForm(true);
+            }
             await fetchVideos();
         } catch (err: unknown) {
             setUploadError(err instanceof Error ? err.message : 'Upload failed');
@@ -161,6 +213,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
     const addBulkFiles = (list: FileList | null) => {
         if (!list || list.length === 0) return;
         const next: BulkUploadItem[] = [];
+        let ep = bulkStartEpisode;
         Array.from(list).forEach(file => {
             const ext = file.name.split('.').pop()?.toLowerCase() || '';
             const allowed = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v', 'ts', 'm2ts'];
@@ -168,9 +221,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
             const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[._-]+/g, ' ').trim();
             next.push({
                 id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-                file, title: baseName, progress: 0, status: 'waiting',
+                file, 
+                title: bulkContentType === 'movie' ? baseName : '', 
+                episode: bulkContentType === 'series' ? ep : undefined,
+                progress: 0, 
+                status: 'waiting',
             });
+            if (bulkContentType === 'series') ep++;
         });
+        if (bulkContentType === 'series') setBulkStartEpisode(ep);
         if (next.length > 0) setBulkItems(prev => [...prev, ...next]);
     };
 
@@ -187,6 +246,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
 
     const runBulkUpload = async () => {
         if (bulkRunning) return;
+        if (bulkContentType === 'series' && !bulkSeriesTitle.trim()) {
+            alert('Please select or specify a series title for the bulk upload');
+            return;
+        }
         const waiting = bulkItems.filter(item => item.status === 'waiting' || item.status === 'error');
         if (waiting.length === 0) return;
         setBulkRunning(true);
@@ -195,6 +258,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
             try {
                 await api.uploadVideoWithProgress(item.file, item.title, (percent) => {
                     updateBulkItem(item.id, { progress: percent });
+                }, {
+                    contentType: bulkContentType,
+                    seriesTitle: bulkContentType === 'series' ? bulkSeriesTitle : undefined,
+                    season: bulkContentType === 'series' ? bulkSeason : undefined,
+                    episode: item.episode,
                 });
                 updateBulkItem(item.id, { status: 'success', progress: 100 });
             } catch (err: unknown) {
@@ -211,6 +279,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
     const openEditModal = (video: Video) => {
         setEditingVideo(video);
         setEditTitle(video.title);
+        setEditContentType((video.contentType as 'movie' | 'series') || 'movie');
+        setEditSeriesTitle(video.seriesTitle || '');
+        setEditSeason(video.season || 1);
+        setEditEpisode(video.episode || 1);
         setEditThumbnail(null);
         setEditError('');
     };
@@ -226,11 +298,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
     const handleSaveEdit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingVideo) return;
-        if (!editTitle.trim()) { setEditError('Title is required.'); return; }
+        if (editContentType === 'movie' && !editTitle.trim()) { setEditError('Title is required for movies.'); return; }
+        if (editContentType === 'series' && !editSeriesTitle.trim()) { setEditError('Series title is required.'); return; }
         setEditLoading(true);
         setEditError('');
         try {
-            const result = await api.editVideo(editingVideo.filename, editTitle.trim());
+            const result = await api.editVideo(editingVideo.filename, editTitle.trim(), {
+                contentType: editContentType,
+                seriesTitle: editSeriesTitle,
+                season: editSeason,
+                episode: editEpisode,
+            });
             if (editThumbnail) await api.uploadThumbnail(result.filename, editThumbnail);
             await fetchVideos();
             closeEditModal();
@@ -557,8 +635,85 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
 
                                 <div className="admin-upload-form-grid">
                                     <div className="admin-form-group">
-                                        <label className="admin-form-label" htmlFor="up-title">Video Title (optional)</label>
-                                        <input id="up-title" className="admin-form-input" type="text" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} placeholder="Episode 01 - Launch Night" />
+                                        <label className="admin-form-label">Content Type</label>
+                                        <Select value={uploadContentType} onValueChange={(v: 'movie'|'series') => setUploadContentType(v)}>
+                                            <SelectTrigger className="admin-form-input" style={{ backgroundColor: '#1a1a1a', borderColor: '#333' }}>
+                                                <SelectValue placeholder="Select content type" />
+                                            </SelectTrigger>
+                                            <SelectContent style={{ backgroundColor: '#222', borderColor: '#333', color: 'white' }}>
+                                                <SelectItem value="movie">Movie / Standalone</SelectItem>
+                                                <SelectItem value="series">Series Episode</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {uploadContentType === 'series' && (
+                                        <>
+<div className="admin-form-group">
+    <label className="admin-form-label">Series Title</label>
+    <Popover open={uploadComboboxOpen} onOpenChange={setUploadComboboxOpen}>
+        <PopoverTrigger asChild>
+            <button
+                type="button"
+                className="admin-form-input"
+                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+                {uploadSeriesTitle || 'Select or type a series...'}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[300px] p-0" style={{ backgroundColor: '#1a1a1a', borderColor: '#333' }}>
+            <Command style={{ backgroundColor: '#1a1a1a' }}>
+                <CommandInput 
+                    placeholder="Search series..." 
+                    value={uploadSeriesTitle}
+                    onValueChange={setUploadSeriesTitle}
+                    style={{ color: 'white' }}
+                />
+                <CommandEmpty style={{ color: '#aaa', padding: '10px' }}>
+                    Type to add new series "{uploadSeriesTitle}"
+                </CommandEmpty>
+                <CommandGroup>
+                    <CommandList>
+                        {existingSeries.map((s) => (
+                            <CommandItem
+                                key={s}
+                                value={s}
+                                onSelect={(currentValue) => {
+                                    setUploadSeriesTitle(currentValue);
+                                    setUploadComboboxOpen(false);
+                                }}
+                                style={{ color: 'white', cursor: 'pointer' }}
+                            >
+                                <Check
+                                    className={`mr-2 h-4 w-4 ${uploadSeriesTitle === s ? 'opacity-100' : 'opacity-0'}`}
+                                />
+                                {s}
+                            </CommandItem>
+                        ))}
+                    </CommandList>
+                </CommandGroup>
+            </Command>
+        </PopoverContent>
+    </Popover>
+</div>
+<div className="admin-form-group" style={{ display: 'flex', gap: '1rem' }}>
+    <div style={{ flex: 1 }}>
+        <label className="admin-form-label">Season</label>
+        <input className="admin-form-input" type="number" min="1" value={uploadSeason} onChange={e => setUploadSeason(parseInt(e.target.value) || 1)} />
+    </div>
+    <div style={{ flex: 1 }}>
+        <label className="admin-form-label">Episode</label>
+        <input className="admin-form-input" type="number" min="1" value={uploadEpisode} onChange={e => setUploadEpisode(parseInt(e.target.value) || 1)} />
+    </div>
+</div>
+
+                                        </>
+                                    )}
+
+                                    <div className="admin-form-group">
+                                        <label className="admin-form-label" htmlFor="up-title">{uploadContentType === 'series' ? 'Episode Title (optional)' : 'Video Title'}</label>
+                                        <input id="up-title" className="admin-form-input" type="text" value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} placeholder={uploadContentType === 'series' ? "e.g., Pilot" : "Video Title"} />
                                     </div>
                                     <div className="admin-form-group">
                                         <label className="admin-form-label">Video File</label>
@@ -613,13 +768,94 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
 
                             {bulkItems.length > 0 && (
                                 <div className="admin-bulk-queue">
+                                    <div className="admin-upload-form-grid" style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid #333' }}>
+                                        <div className="admin-form-group">
+                                            <label className="admin-form-label">Bulk Content Type</label>
+                                            <Select value={bulkContentType} onValueChange={(v: 'movie'|'series') => setBulkContentType(v)} disabled={bulkRunning}>
+                                                <SelectTrigger className="admin-form-input" style={{ backgroundColor: '#1a1a1a', borderColor: '#333' }}>
+                                                    <SelectValue placeholder="Select content type" />
+                                                </SelectTrigger>
+                                                <SelectContent style={{ backgroundColor: '#222', borderColor: '#333', color: 'white' }}>
+                                                    <SelectItem value="movie">Movies / Standalone</SelectItem>
+                                                    <SelectItem value="series">Series Episodes</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {bulkContentType === 'series' && (
+                                            <>
+<div className="admin-form-group">
+    <label className="admin-form-label">Series Title</label>
+    <Popover open={bulkComboboxOpen} onOpenChange={setBulkComboboxOpen}>
+        <PopoverTrigger asChild>
+            <button
+                type="button"
+                className="admin-form-input"
+                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+                {bulkSeriesTitle || 'Select or type a series...'}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[300px] p-0" style={{ backgroundColor: '#1a1a1a', borderColor: '#333' }}>
+            <Command style={{ backgroundColor: '#1a1a1a' }}>
+                <CommandInput 
+                    placeholder="Search series..." 
+                    value={bulkSeriesTitle}
+                    onValueChange={setBulkSeriesTitle}
+                    style={{ color: 'white' }}
+                />
+                <CommandEmpty style={{ color: '#aaa', padding: '10px' }}>
+                    Type to add new series "{bulkSeriesTitle}"
+                </CommandEmpty>
+                <CommandGroup>
+                    <CommandList>
+                        {existingSeries.map((s) => (
+                            <CommandItem
+                                key={s}
+                                value={s}
+                                onSelect={(currentValue) => {
+                                    setBulkSeriesTitle(currentValue);
+                                    setBulkComboboxOpen(false);
+                                }}
+                                style={{ color: 'white', cursor: 'pointer' }}
+                            >
+                                <Check
+                                    className={`mr-2 h-4 w-4 ${bulkSeriesTitle === s ? 'opacity-100' : 'opacity-0'}`}
+                                />
+                                {s}
+                            </CommandItem>
+                        ))}
+                    </CommandList>
+                </CommandGroup>
+            </Command>
+        </PopoverContent>
+    </Popover>
+</div>
+<div className="admin-form-group" style={{ display: 'flex', gap: '1rem' }}>
+    <div style={{ flex: 1 }}>
+        <label className="admin-form-label">Season</label>
+        <input className="admin-form-input" type="number" min="1" value={bulkSeason} onChange={e => setBulkSeason(parseInt(e.target.value) || 1)} />
+    </div>
+    <div style={{ flex: 1 }}>
+        <label className="admin-form-label">Start Episode (Auto-incremented)</label>
+        <input className="admin-form-input" type="number" min="1" value={bulkStartEpisode} onChange={e => setBulkStartEpisode(parseInt(e.target.value) || 1)} />
+    </div>
+</div>
+
+                                            </>
+                                        )}
+                                    </div>
                                     {bulkItems.map(item => (
                                         <div key={item.id} className="admin-bulk-row">
                                             <div className="admin-bulk-info">
                                                 <span className="admin-bulk-name">{item.file.name}</span>
                                                 <span className="admin-bulk-size">{(item.file.size / (1024 * 1024)).toFixed(1)} MB</span>
                                             </div>
-                                            <input className="admin-form-input compact" value={item.title} onChange={e => updateBulkItem(item.id, { title: e.target.value })} placeholder="Optional title" disabled={bulkRunning} />
+                                            {bulkContentType === 'series' && (
+                                                <input className="admin-form-input compact" type="number" value={item.episode || ''} onChange={e => updateBulkItem(item.id, { episode: parseInt(e.target.value) || 1 })} placeholder="Ep" style={{ width: '60px' }} disabled={bulkRunning} />
+                                            )}
+                                            <input className="admin-form-input compact" value={item.title} onChange={e => updateBulkItem(item.id, { title: e.target.value })} placeholder={bulkContentType === 'series' ? "Optional Ep Title" : "Title"} disabled={bulkRunning} />
                                             <div className="admin-bulk-progress-wrap">
                                                 <div className="admin-bulk-progress-bar" style={{ width: `${item.progress}%` }} />
                                             </div>
@@ -650,8 +886,85 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
                         <h3>Edit Video</h3>
                         <p className="edit-modal-sub">Update title and thumbnail</p>
                         <form onSubmit={handleSaveEdit}>
-                            <label className="form-label" htmlFor="edit-title-admin">Title</label>
-                            <input id="edit-title-admin" className="form-input" value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Enter new title" />
+                            <div className="admin-form-group" style={{ marginBottom: '1rem' }}>
+                                <label className="form-label">Content Type</label>
+                                <Select value={editContentType} onValueChange={(v: 'movie'|'series') => setEditContentType(v)}>
+                                    <SelectTrigger className="form-input" style={{ backgroundColor: '#1a1a1a', borderColor: '#333' }}>
+                                        <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                    <SelectContent style={{ backgroundColor: '#222', borderColor: '#333', color: 'white' }}>
+                                        <SelectItem value="movie">Movie</SelectItem>
+                                        <SelectItem value="series">Series</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            
+                            {editContentType === 'series' && (
+                                <div style={{ marginBottom: '1rem' }}>
+<div className="admin-form-group">
+    <label className="admin-form-label">Series Title</label>
+    <Popover open={editComboboxOpen} onOpenChange={setEditComboboxOpen}>
+        <PopoverTrigger asChild>
+            <button
+                type="button"
+                className="admin-form-input"
+                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+                {editSeriesTitle || 'Select or type a series...'}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[300px] p-0" style={{ backgroundColor: '#1a1a1a', borderColor: '#333' }}>
+            <Command style={{ backgroundColor: '#1a1a1a' }}>
+                <CommandInput 
+                    placeholder="Search series..." 
+                    value={editSeriesTitle}
+                    onValueChange={setEditSeriesTitle}
+                    style={{ color: 'white' }}
+                />
+                <CommandEmpty style={{ color: '#aaa', padding: '10px' }}>
+                    Type to add new series "{editSeriesTitle}"
+                </CommandEmpty>
+                <CommandGroup>
+                    <CommandList>
+                        {existingSeries.map((s) => (
+                            <CommandItem
+                                key={s}
+                                value={s}
+                                onSelect={(currentValue) => {
+                                    setEditSeriesTitle(currentValue);
+                                    setEditComboboxOpen(false);
+                                }}
+                                style={{ color: 'white', cursor: 'pointer' }}
+                            >
+                                <Check
+                                    className={`mr-2 h-4 w-4 ${editSeriesTitle === s ? 'opacity-100' : 'opacity-0'}`}
+                                />
+                                {s}
+                            </CommandItem>
+                        ))}
+                    </CommandList>
+                </CommandGroup>
+            </Command>
+        </PopoverContent>
+    </Popover>
+</div>
+<div className="admin-form-group" style={{ display: 'flex', gap: '1rem' }}>
+    <div style={{ flex: 1 }}>
+        <label className="admin-form-label">Season</label>
+        <input className="admin-form-input" type="number" min="1" value={editSeason} onChange={e => setEditSeason(parseInt(e.target.value) || 1)} />
+    </div>
+    <div style={{ flex: 1 }}>
+        <label className="admin-form-label">Episode</label>
+        <input className="admin-form-input" type="number" min="1" value={editEpisode} onChange={e => setEditEpisode(parseInt(e.target.value) || 1)} />
+    </div>
+</div>
+
+                                </div>
+                            )}
+
+                            <label className="form-label" htmlFor="edit-title-admin">{editContentType === 'series' ? 'Episode Title' : 'Title'}</label>
+                            <input id="edit-title-admin" className="form-input" value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Enter title" />
                             <label className="form-label" htmlFor="edit-thumbnail-admin" style={{ marginTop: 12 }}>Thumbnail (jpg/png)</label>
                             <input id="edit-thumbnail-admin" className="form-input" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" onChange={e => setEditThumbnail(e.target.files?.[0] || null)} />
                             {editError && <div className="login-error" style={{ marginTop: 12 }}>{editError}</div>}

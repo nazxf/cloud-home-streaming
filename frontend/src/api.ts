@@ -15,6 +15,7 @@ export interface Video {
   season?: number;
   episode?: number;
   groupType?: 'series' | 'other' | string;
+  contentType?: string;
 }
 
 export interface VideoProgress {
@@ -111,13 +112,21 @@ export const api = {
     return res.json();
   },
 
-  uploadVideo: async (file: File, title?: string): Promise<{ message: string; filename: string }> => {
+  uploadVideo: async (
+    file: File, 
+    title?: string,
+    metadata?: { contentType?: string; seriesTitle?: string; season?: number; episode?: number }
+  ): Promise<{ message: string; filename: string }> => {
     const token = localStorage.getItem('sf_token');
     const formData = new FormData();
     formData.append('video', file);
     if (title?.trim()) {
       formData.append('title', title.trim());
     }
+    if (metadata?.contentType) formData.append('contentType', metadata.contentType);
+    if (metadata?.seriesTitle) formData.append('seriesTitle', metadata.seriesTitle);
+    if (metadata?.season) formData.append('season', String(metadata.season));
+    if (metadata?.episode) formData.append('episode', String(metadata.episode));
 
     const res = await fetch(`${API_BASE}/api/videos/upload`, {
       method: 'POST',
@@ -134,7 +143,12 @@ export const api = {
     return payload;
   },
 
-  uploadVideoWithProgress: (file: File, title: string, onProgress: (percent: number) => void): Promise<{ message: string; filename: string }> => {
+  uploadVideoWithProgress: (
+    file: File, 
+    title: string, 
+    onProgress: (percent: number) => void,
+    metadata?: { contentType?: string; seriesTitle?: string; season?: number; episode?: number }
+  ): Promise<{ message: string; filename: string }> => {
     const token = localStorage.getItem('sf_token');
 
     return new Promise((resolve, reject) => {
@@ -144,6 +158,10 @@ export const api = {
       if (title.trim()) {
         formData.append('title', title.trim());
       }
+      if (metadata?.contentType) formData.append('contentType', metadata.contentType);
+      if (metadata?.seriesTitle) formData.append('seriesTitle', metadata.seriesTitle);
+      if (metadata?.season) formData.append('season', String(metadata.season));
+      if (metadata?.episode) formData.append('episode', String(metadata.episode));
 
       xhr.open('POST', `${API_BASE}/api/videos/upload`);
       if (token) {
@@ -190,11 +208,16 @@ export const api = {
     });
   },
 
-  editVideo: async (filename: string, title: string): Promise<{ message: string; filename: string }> => {
+  editVideo: async (
+    filename: string, 
+    title: string,
+    metadata?: { contentType?: string; seriesTitle?: string; season?: number; episode?: number }
+  ): Promise<{ message: string; filename: string }> => {
+    const reqPayload = { title, ...(metadata || {}) };
     const res = await fetch(`${API_BASE}/api/videos/${encodeURIComponent(filename)}`, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ title }),
+      body: JSON.stringify(reqPayload),
     });
 
     unauthorizedGuard(res);

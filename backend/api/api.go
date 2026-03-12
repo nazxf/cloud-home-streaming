@@ -144,7 +144,7 @@ func videosHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	titleMap := db.LoadVideoTitles()
+	metaMap := db.LoadVideoMeta()
 	var videos []models.Video
 
 	for _, entry := range entries {
@@ -170,12 +170,37 @@ func videosHandler(w http.ResponseWriter, r *http.Request) {
 			return r
 		}, id)
 
-		title := strings.TrimSpace(titleMap[entry.Name()])
+		meta, hasMeta := metaMap[entry.Name()]
+
+		title := ""
+		if hasMeta {
+			title = strings.TrimSpace(meta.Title)
+		}
 		if title == "" {
 			title = utils.SanitizeTitle(entry.Name())
 		}
 
 		seriesTitle, season, episode, groupType := utils.ParseSeriesInfo(entry.Name())
+		contentType := "movie"
+		if hasMeta && meta.ContentType != "" {
+			contentType = meta.ContentType
+			if contentType == "series" {
+				groupType = "series"
+			} else {
+				groupType = "other"
+			}
+			if meta.SeriesTitle != "" {
+				seriesTitle = meta.SeriesTitle
+			}
+			if meta.Season > 0 {
+				season = meta.Season
+			}
+			if meta.Episode > 0 {
+				episode = meta.Episode
+			}
+		} else if groupType == "series" {
+			contentType = "series"
+		}
 
 		videos = append(videos, models.Video{
 			ID:          id,
@@ -191,6 +216,7 @@ func videosHandler(w http.ResponseWriter, r *http.Request) {
 			Season:      season,
 			Episode:     episode,
 			GroupType:   groupType,
+			ContentType: contentType,
 		})
 	}
 
@@ -239,6 +265,26 @@ func uploadVideoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	inputTitle := strings.TrimSpace(r.FormValue("title"))
+	contentType := strings.TrimSpace(r.FormValue("contentType"))
+	if contentType == "" {
+		contentType = "movie"
+	}
+	seriesTitle := strings.TrimSpace(r.FormValue("seriesTitle"))
+	seasonStr := strings.TrimSpace(r.FormValue("season"))
+	episodeStr := strings.TrimSpace(r.FormValue("episode"))
+
+	season, _ := strconv.Atoi(seasonStr)
+	episode, _ := strconv.Atoi(episodeStr)
+
+	if contentType == "series" {
+		if season <= 0 {
+			season = 1
+		}
+		if episode <= 0 {
+			episode = 1
+		}
+	}
+
 	baseName := utils.SanitizeStorageName(inputTitle)
 	if inputTitle == "" {
 		baseName = utils.SanitizeStorageName(strings.TrimSuffix(header.Filename, ext))
@@ -270,7 +316,14 @@ func uploadVideoHandler(w http.ResponseWriter, r *http.Request) {
 	if title == "" {
 		title = utils.SanitizeTitle(fileName)
 	}
-	_ = db.UpsertVideoTitle(fileName, title)
+	_ = db.UpsertVideoMeta(db.VideoMeta{
+		Filename:    fileName,
+		Title:       title,
+		ContentType: contentType,
+		SeriesTitle: seriesTitle,
+		Season:      season,
+		Episode:     episode,
+	})
 
 	go func(name string) {
 		if err := utils.GenerateThumbnailForVideo(name); err != nil {
@@ -374,7 +427,14 @@ func manageVideoHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_ = db.DeleteVideoMeta(filename)
-		_ = db.UpsertVideoTitle(newFilename, strings.TrimSpace(req.Title))
+		_ = db.UpsertVideoMeta(db.VideoMeta{
+			Filename:    newFilename,
+			Title:       strings.TrimSpace(req.Title),
+			ContentType: req.ContentType,
+			SeriesTitle: req.SeriesTitle,
+			Season:      req.Season,
+			Episode:     req.Episode,
+		})
 		jsonResponse(w, http.StatusOK, map[string]string{"message": "Video updated", "filename": newFilename})
 		return
 	}
