@@ -1,169 +1,58 @@
-import React, { useState, useRef } from 'react';
-import { api } from '../api';
+import React, { useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '../components/ui/command';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import './UploadPage.css';
+import { useVideoUpload } from '../hooks/useVideoUpload';
 
 interface UploadPageProps {
     existingSeries: string[];
     fetchVideos: () => Promise<void>;
 }
 
-type BulkStatus = 'waiting' | 'uploading' | 'success' | 'error';
-
-interface BulkUploadItem {
-    id: string;
-    file: File;
-    title: string;
-    progress: number;
-    status: BulkStatus;
-    error?: string;
-    episode?: number;
-}
-
 const UploadPage: React.FC<UploadPageProps> = ({ existingSeries, fetchVideos }) => {
-    // ── Single Upload state ──
-    const [uploadTitle, setUploadTitle] = useState('');
-    const [uploadContentType, setUploadContentType] = useState<'movie' | 'series'>('movie');
-    const [uploadSeriesTitle, setUploadSeriesTitle] = useState('');
-    const [uploadComboboxOpen, setUploadComboboxOpen] = useState(false);
-    const [uploadSeason, setUploadSeason] = useState<number>(1);
-    const [uploadEpisode, setUploadEpisode] = useState<number>(1);
-    const [uploadFile, setUploadFile] = useState<File | null>(null);
-    const [uploading, setUploading] = useState(false);
-    const [uploadError, setUploadError] = useState('');
-    const [uploadSuccess, setUploadSuccess] = useState('');
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
-    const uploadThumbInputRef = useRef<HTMLInputElement | null>(null);
-    const [uploadThumbnailFile, setUploadThumbnailFile] = useState<File | null>(null);
-
-    // ── Bulk Upload state ──
-    const bulkInputRef = useRef<HTMLInputElement | null>(null);
-    const [bulkContentType, setBulkContentType] = useState<'movie' | 'series'>('movie');
-    const [bulkSeriesTitle, setBulkSeriesTitle] = useState('');
-    const [bulkComboboxOpen, setBulkComboboxOpen] = useState(false);
-    const [bulkSeason, setBulkSeason] = useState<number>(1);
-    const [bulkStartEpisode, setBulkStartEpisode] = useState<number>(1);
-    const [bulkItems, setBulkItems] = useState<BulkUploadItem[]>([]);
-    const [bulkRunning, setBulkRunning] = useState(false);
-    const [dragActive, setDragActive] = useState(false);
-
     // ── Active tab ──
     const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
 
-    // ── File handlers ──
-    const handleChooseFile = () => fileInputRef.current?.click();
-    const handleChooseThumbnail = () => uploadThumbInputRef.current?.click();
-    const handleChooseBulk = () => bulkInputRef.current?.click();
+    // ── Upload combobox UI state (tetap lokal karena hanya UI) ──
+    const [uploadComboboxOpen, setUploadComboboxOpen] = useState(false);
+    const [bulkComboboxOpen, setBulkComboboxOpen] = useState(false);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setUploadFile(e.target.files?.[0] || null);
-        setUploadError(''); setUploadSuccess('');
-    };
-
-    const handleThumbnailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setUploadThumbnailFile(e.target.files?.[0] || null);
-        setUploadError(''); setUploadSuccess('');
-    };
-
-    const clearUploadForm = (resetAll: boolean | React.MouseEvent = true) => {
-        if (resetAll === true || typeof resetAll !== 'boolean') {
-            setUploadTitle(''); setUploadContentType('movie');
-            setUploadSeriesTitle(''); setUploadSeason(1); setUploadEpisode(1);
-        } else { setUploadTitle(''); }
-        setUploadFile(null); setUploadThumbnailFile(null); setUploadError('');
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        if (uploadThumbInputRef.current) uploadThumbInputRef.current.value = '';
-    };
-
-    const handleUpload = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!uploadFile) { setUploadError('Please choose a video file first.'); return; }
-        if (uploadContentType === 'series' && !uploadSeriesTitle.trim()) {
-            setUploadError('Series title is required for episodes.'); return;
-        }
-        setUploading(true); setUploadError(''); setUploadSuccess('');
-        try {
-            const result = await api.uploadVideo(uploadFile, uploadTitle, {
-                contentType: uploadContentType, seriesTitle: uploadSeriesTitle,
-                season: uploadSeason, episode: uploadEpisode,
-            });
-            if (uploadThumbnailFile) await api.uploadThumbnail(result.filename, uploadThumbnailFile);
-            setUploadSuccess(uploadThumbnailFile ? 'Video and thumbnail uploaded successfully.' : (result.message || 'Video uploaded successfully.'));
-            if (uploadContentType === 'series') { setUploadEpisode(prev => prev + 1); clearUploadForm(false); }
-            else { clearUploadForm(true); }
-            await fetchVideos();
-        } catch (err: unknown) {
-            setUploadError(err instanceof Error ? err.message : 'Upload failed');
-        } finally { setUploading(false); }
-    };
-
-    // ── Bulk handlers ──
-    const updateBulkItem = (id: string, patch: Partial<BulkUploadItem>) => {
-        setBulkItems(prev => prev.map(item => item.id === id ? { ...item, ...patch } : item));
-    };
-
-    const addBulkFiles = (list: FileList | null) => {
-        if (!list || list.length === 0) return;
-        const next: BulkUploadItem[] = [];
-        let ep = bulkStartEpisode;
-        Array.from(list).forEach(file => {
-            const ext = file.name.split('.').pop()?.toLowerCase() || '';
-            const allowed = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v', 'ts', 'm2ts'];
-            if (!allowed.includes(ext)) return;
-            const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[._-]+/g, ' ').trim();
-            next.push({
-                id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-                file, title: bulkContentType === 'movie' ? baseName : '',
-                episode: bulkContentType === 'series' ? ep : undefined,
-                progress: 0, status: 'waiting',
-            });
-            if (bulkContentType === 'series') ep++;
-        });
-        if (bulkContentType === 'series') setBulkStartEpisode(ep);
-        if (next.length > 0) setBulkItems(prev => [...prev, ...next]);
-    };
-
-    const handleBulkFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        addBulkFiles(e.target.files);
-        if (bulkInputRef.current) bulkInputRef.current.value = '';
-    };
-
-    const handleBulkDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault(); setDragActive(false);
-        addBulkFiles(e.dataTransfer.files);
-    };
-
-    const runBulkUpload = async () => {
-        if (bulkRunning) return;
-        if (bulkContentType === 'series' && !bulkSeriesTitle.trim()) {
-            alert('Please select or specify a series title for the bulk upload'); return;
-        }
-        const waiting = bulkItems.filter(item => item.status === 'waiting' || item.status === 'error');
-        if (waiting.length === 0) return;
-        setBulkRunning(true);
-        for (const item of waiting) {
-            updateBulkItem(item.id, { status: 'uploading', progress: 0, error: undefined });
-            try {
-                await api.uploadVideoWithProgress(item.file, item.title, (percent) => {
-                    updateBulkItem(item.id, { progress: percent });
-                }, {
-                    contentType: bulkContentType,
-                    seriesTitle: bulkContentType === 'series' ? bulkSeriesTitle : undefined,
-                    season: bulkContentType === 'series' ? bulkSeason : undefined,
-                    episode: item.episode,
-                });
-                updateBulkItem(item.id, { status: 'success', progress: 100 });
-            } catch (err: unknown) {
-                updateBulkItem(item.id, { status: 'error', error: err instanceof Error ? err.message : 'Upload failed' });
-            }
-        }
-        setBulkRunning(false);
-        await fetchVideos();
-    };
-
-    const clearBulk = () => { if (!bulkRunning) setBulkItems([]); };
+    // ── Semua logika upload diambil dari hook terpusat ──
+    const {
+        uploadTitle, setUploadTitle,
+        uploadContentType, setUploadContentType,
+        uploadSeriesTitle, setUploadSeriesTitle,
+        uploadSeason, setUploadSeason,
+        uploadEpisode, setUploadEpisode,
+        uploadFile,
+        uploadThumbnailFile,
+        uploading,
+        uploadError,
+        uploadSuccess,
+        fileInputRef,
+        uploadThumbInputRef,
+        handleChooseFile,
+        handleChooseThumbnail,
+        handleFileChange,
+        handleThumbnailFileChange,
+        handleUpload,
+        clearUploadForm,
+        bulkContentType, setBulkContentType,
+        bulkSeriesTitle, setBulkSeriesTitle,
+        bulkSeason, setBulkSeason,
+        bulkStartEpisode, setBulkStartEpisode,
+        bulkItems,
+        bulkRunning,
+        dragActive, setDragActive,
+        bulkInputRef,
+        handleChooseBulk,
+        handleBulkFileChange,
+        handleBulkDrop,
+        updateBulkItem,
+        runBulkUpload,
+        clearBulk,
+    } = useVideoUpload({ fetchVideos });
 
     // ── Combobox helper ──
     const renderSeriesCombobox = (

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Navbar from './Navbar';
 import VideoCard from './VideoCard';
 import PlayerModal from './PlayerModal';
 import { Video, api, getManualThumbnailUrl } from '../api';
+import { useVideoUpload } from '../hooks/useVideoUpload';
 
 interface DashboardProps {
     username: string;
@@ -28,20 +29,6 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onLogout }) => {
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
-    const [uploadTitle, setUploadTitle] = useState('');
-    const [uploadFile, setUploadFile] = useState<File | null>(null);
-    const [uploading, setUploading] = useState(false);
-    const [uploadError, setUploadError] = useState('');
-    const [uploadSuccess, setUploadSuccess] = useState('');
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
-    const uploadThumbInputRef = useRef<HTMLInputElement | null>(null);
-    const [uploadThumbnailFile, setUploadThumbnailFile] = useState<File | null>(null);
-
-    const bulkInputRef = useRef<HTMLInputElement | null>(null);
-    const [bulkItems, setBulkItems] = useState<BulkUploadItem[]>([]);
-    const [bulkRunning, setBulkRunning] = useState(false);
-    const [dragActive, setDragActive] = useState(false);
-
     const [editingVideo, setEditingVideo] = useState<Video | null>(null);
     const [editTitle, setEditTitle] = useState('');
     const [editThumbnail, setEditThumbnail] = useState<File | null>(null);
@@ -64,6 +51,33 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onLogout }) => {
         }
     }, []);
 
+    const {
+        uploadTitle, setUploadTitle,
+        uploadFile,
+        uploadThumbnailFile,
+        uploading,
+        uploadError,
+        uploadSuccess,
+        fileInputRef,
+        uploadThumbInputRef,
+        handleChooseFile,
+        handleChooseThumbnail,
+        handleFileChange,
+        handleThumbnailFileChange,
+        handleUpload,
+        clearUploadForm,
+        bulkItems,
+        bulkRunning,
+        dragActive, setDragActive,
+        bulkInputRef,
+        handleChooseBulk,
+        handleBulkFileChange,
+        handleBulkDrop,
+        updateBulkItem,
+        runBulkUpload,
+        clearBulk,
+    } = useVideoUpload({ fetchVideos });
+
     useEffect(() => {
         fetchVideos();
     }, [fetchVideos]);
@@ -85,172 +99,32 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onLogout }) => {
     const grouped = useMemo(() => {
         const seriesMap = new Map<string, Map<number, Video[]>>();
         const other: Video[] = [];
-
         for (const video of filteredVideos) {
             if ((video.groupType || '').toLowerCase() === 'series') {
                 const seriesTitle = video.seriesTitle || 'Untitled Series';
                 const season = video.season || 1;
-
-                if (!seriesMap.has(seriesTitle)) {
-                    seriesMap.set(seriesTitle, new Map<number, Video[]>());
-                }
-
+                if (!seriesMap.has(seriesTitle)) seriesMap.set(seriesTitle, new Map<number, Video[]>());
                 const seasonMap = seriesMap.get(seriesTitle)!;
-                if (!seasonMap.has(season)) {
-                    seasonMap.set(season, []);
-                }
-
+                if (!seasonMap.has(season)) seasonMap.set(season, []);
                 seasonMap.get(season)!.push(video);
             } else {
                 other.push(video);
             }
         }
-
-        const seriesEntries = Array.from(seriesMap.entries()).map(([seriesTitle, seasons]) => {
-            const seasonEntries = Array.from(seasons.entries())
+        const seriesEntries = Array.from(seriesMap.entries()).map(([seriesTitle, seasons]) => ({
+            seriesTitle,
+            seasons: Array.from(seasons.entries())
                 .sort(([a], [b]) => a - b)
                 .map(([season, episodes]) => ({
                     season,
                     episodes: episodes.sort((a, b) => (a.episode || 0) - (b.episode || 0) || b.createdAt.localeCompare(a.createdAt)),
-                }));
-
-            return {
-                seriesTitle,
-                seasons: seasonEntries,
-            };
-        }).sort((a, b) => a.seriesTitle.localeCompare(b.seriesTitle));
-
+                })),
+        })).sort((a, b) => a.seriesTitle.localeCompare(b.seriesTitle));
         return { seriesEntries, other };
     }, [filteredVideos]);
 
     const handleVideoClick = (video: Video) => setSelectedVideo(video);
     const handleClosePlayer = () => setSelectedVideo(null);
-    const handleChooseFile = () => fileInputRef.current?.click();
-    const handleChooseThumbnail = () => uploadThumbInputRef.current?.click();
-    const handleChooseBulk = () => bulkInputRef.current?.click();
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const nextFile = e.target.files?.[0] || null;
-        setUploadFile(nextFile);
-        setUploadError('');
-        setUploadSuccess('');
-    };
-
-    const handleThumbnailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const nextFile = e.target.files?.[0] || null;
-        setUploadThumbnailFile(nextFile);
-        setUploadError('');
-        setUploadSuccess('');
-    };
-
-    const clearUploadForm = () => {
-        setUploadTitle('');
-        setUploadFile(null);
-        setUploadThumbnailFile(null);
-        setUploadError('');
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        if (uploadThumbInputRef.current) uploadThumbInputRef.current.value = '';
-    };
-
-    const handleUpload = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!uploadFile) {
-            setUploadError('Please choose a video file first.');
-            return;
-        }
-
-        setUploading(true);
-        setUploadError('');
-        setUploadSuccess('');
-
-        try {
-            const result = await api.uploadVideo(uploadFile, uploadTitle);
-            if (uploadThumbnailFile) {
-                await api.uploadThumbnail(result.filename, uploadThumbnailFile);
-            }
-            setUploadSuccess(uploadThumbnailFile ? 'Video and thumbnail uploaded successfully.' : (result.message || 'Video uploaded successfully.'));
-            clearUploadForm();
-            await fetchVideos();
-        } catch (err: unknown) {
-            setUploadError(err instanceof Error ? err.message : 'Upload failed');
-        } finally {
-            setUploading(false);
-        }
-    };
-
-    const updateBulkItem = (id: string, patch: Partial<BulkUploadItem>) => {
-        setBulkItems((prev) => prev.map((item) => item.id === id ? { ...item, ...patch } : item));
-    };
-
-    const addBulkFiles = (list: FileList | null) => {
-        if (!list || list.length === 0) return;
-
-        const next: BulkUploadItem[] = [];
-        Array.from(list).forEach((file) => {
-            const ext = file.name.split('.').pop()?.toLowerCase() || '';
-            const allowed = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v', 'ts', 'm2ts'];
-            if (!allowed.includes(ext)) {
-                return;
-            }
-
-            const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[._-]+/g, ' ').trim();
-            next.push({
-                id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-                file,
-                title: baseName,
-                progress: 0,
-                status: 'waiting',
-            });
-        });
-
-        if (next.length > 0) {
-            setBulkItems((prev) => [...prev, ...next]);
-        }
-    };
-
-    const handleBulkFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        addBulkFiles(e.target.files);
-        if (bulkInputRef.current) {
-            bulkInputRef.current.value = '';
-        }
-    };
-
-    const handleBulkDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        setDragActive(false);
-        addBulkFiles(e.dataTransfer.files);
-    };
-
-    const runBulkUpload = async () => {
-        if (bulkRunning) return;
-        const waiting = bulkItems.filter((item) => item.status === 'waiting' || item.status === 'error');
-        if (waiting.length === 0) return;
-
-        setBulkRunning(true);
-
-        for (const item of waiting) {
-            updateBulkItem(item.id, { status: 'uploading', progress: 0, error: undefined });
-            try {
-                await api.uploadVideoWithProgress(item.file, item.title, (percent) => {
-                    updateBulkItem(item.id, { progress: percent });
-                });
-                updateBulkItem(item.id, { status: 'success', progress: 100 });
-            } catch (err: unknown) {
-                updateBulkItem(item.id, {
-                    status: 'error',
-                    error: err instanceof Error ? err.message : 'Upload failed',
-                });
-            }
-        }
-
-        setBulkRunning(false);
-        await fetchVideos();
-    };
-
-    const clearBulk = () => {
-        if (bulkRunning) return;
-        setBulkItems([]);
-    };
 
     const openEditModal = (video: Video) => {
         setEditingVideo(video);
@@ -378,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({ username, onLogout }) => {
                                 <button type="submit" className="btn-login admin-upload-btn" disabled={uploading}>
                                     {uploading ? 'Uploading...' : 'Upload Video'}
                                 </button>
-                                <button type="button" className="admin-secondary-btn" onClick={clearUploadForm} disabled={uploading}>Reset</button>
+                                <button type="button" className="admin-secondary-btn" onClick={() => clearUploadForm(true)} disabled={uploading}>Reset</button>
                             </div>
 
                             {uploadError && <div className="login-error" style={{ marginTop: 14 }}>{uploadError}</div>}

@@ -73,6 +73,25 @@ export const getAutoThumbnailUrl = (video: Video): string => {
 
 export const getThumbnailUrl = getManualThumbnailUrl;
 
+/**
+ * Helper bersama: membangun FormData yang seragam untuk upload video.
+ * Digunakan oleh uploadVideo (fetch) dan uploadVideoWithProgress (XHR).
+ */
+function buildUploadFormData(
+  file: File,
+  title?: string,
+  metadata?: { contentType?: string; seriesTitle?: string; season?: number; episode?: number }
+): FormData {
+  const formData = new FormData();
+  formData.append('video', file);
+  if (title?.trim()) formData.append('title', title.trim());
+  if (metadata?.contentType) formData.append('contentType', metadata.contentType);
+  if (metadata?.seriesTitle) formData.append('seriesTitle', metadata.seriesTitle);
+  if (metadata?.season) formData.append('season', String(metadata.season));
+  if (metadata?.episode) formData.append('episode', String(metadata.episode));
+  return formData;
+}
+
 export const api = {
   login: async (username: string, password: string): Promise<LoginResponse> => {
     const res = await fetch(`${API_BASE}/api/login`, {
@@ -112,21 +131,14 @@ export const api = {
     return res.json();
   },
 
+  /** Membangun FormData yang seragam untuk semua permintaan upload video */
   uploadVideo: async (
-    file: File, 
+    file: File,
     title?: string,
     metadata?: { contentType?: string; seriesTitle?: string; season?: number; episode?: number }
   ): Promise<{ message: string; filename: string }> => {
     const token = localStorage.getItem('sf_token');
-    const formData = new FormData();
-    formData.append('video', file);
-    if (title?.trim()) {
-      formData.append('title', title.trim());
-    }
-    if (metadata?.contentType) formData.append('contentType', metadata.contentType);
-    if (metadata?.seriesTitle) formData.append('seriesTitle', metadata.seriesTitle);
-    if (metadata?.season) formData.append('season', String(metadata.season));
-    if (metadata?.episode) formData.append('episode', String(metadata.episode));
+    const formData = buildUploadFormData(file, title, metadata);
 
     const res = await fetch(`${API_BASE}/api/videos/upload`, {
       method: 'POST',
@@ -136,42 +148,27 @@ export const api = {
 
     unauthorizedGuard(res);
     const payload = await res.json().catch(() => ({ error: 'Upload failed' }));
-    if (!res.ok) {
-      throw new Error(payload.error || 'Upload failed');
-    }
-
+    if (!res.ok) throw new Error(payload.error || 'Upload failed');
     return payload;
   },
 
   uploadVideoWithProgress: (
-    file: File, 
-    title: string, 
+    file: File,
+    title: string,
     onProgress: (percent: number) => void,
     metadata?: { contentType?: string; seriesTitle?: string; season?: number; episode?: number }
   ): Promise<{ message: string; filename: string }> => {
     const token = localStorage.getItem('sf_token');
+    const formData = buildUploadFormData(file, title, metadata);
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      const formData = new FormData();
-      formData.append('video', file);
-      if (title.trim()) {
-        formData.append('title', title.trim());
-      }
-      if (metadata?.contentType) formData.append('contentType', metadata.contentType);
-      if (metadata?.seriesTitle) formData.append('seriesTitle', metadata.seriesTitle);
-      if (metadata?.season) formData.append('season', String(metadata.season));
-      if (metadata?.episode) formData.append('episode', String(metadata.episode));
 
       xhr.open('POST', `${API_BASE}/api/videos/upload`);
-      if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      }
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
       xhr.upload.onprogress = (event) => {
-        if (!event.lengthComputable) {
-          return;
-        }
+        if (!event.lengthComputable) return;
         onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
       };
 
@@ -183,23 +180,14 @@ export const api = {
           reject(new Error('Unauthorized'));
           return;
         }
-
         let payload: { message?: string; filename?: string; error?: string } = {};
-        try {
-          payload = JSON.parse(xhr.responseText || '{}');
-        } catch {
-          payload = {};
-        }
+        try { payload = JSON.parse(xhr.responseText || '{}'); } catch { payload = {}; }
 
         if (xhr.status >= 200 && xhr.status < 300 && payload.filename) {
           onProgress(100);
-          resolve({
-            message: payload.message || 'Video uploaded successfully',
-            filename: payload.filename,
-          });
+          resolve({ message: payload.message || 'Video uploaded successfully', filename: payload.filename });
           return;
         }
-
         reject(new Error(payload.error || 'Upload failed'));
       };
 
@@ -207,6 +195,7 @@ export const api = {
       xhr.send(formData);
     });
   },
+
 
   editVideo: async (
     filename: string, 

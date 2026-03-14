@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
+import { CHAPTER_THRESHOLDS, CHAPTER_NAMES, CHAPTER_MIN_DURATION_FOR_SAFETY, CHAPTER_INTRO_MIN_SECONDS, CHAPTER_OUTRO_BUFFER_SECONDS } from '../config/constants';
 import {
   Play,
   Pause,
@@ -22,6 +23,7 @@ import { Video, api, getStreamUrl, getManualThumbnailUrl } from '../api';
 import { ProgressBar } from './player/ProgressBar';
 import { EpisodeList } from './player/EpisodeList';
 import { PlayerControls } from './player/PlayerControls';
+import { usePlayerState } from '../hooks/usePlayerState';
 
 interface PlayerModalProps {
   video: Video;
@@ -36,45 +38,40 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, videos, onClose, onSel
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isEnded, setIsEnded] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [currentTime, setCurrentTime] = useState('0:00');
-  const [duration, setDuration] = useState('0:00');
-  const [timeLeft, setTimeLeft] = useState('0:00');
-  const [showTimeLeft, setShowTimeLeft] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-  const [isHoveringProgress, setIsHoveringProgress] = useState(false);
-  const [showCenterPlay, setShowCenterPlay] = useState(true);
-  const [isLooping, setIsLooping] = useState(false);
-  const [currentChapter, setCurrentChapter] = useState('Intro');
-
-  const [resumeSeconds, setResumeSeconds] = useState<number | null>(null);
-  const [resumeApplied, setResumeApplied] = useState(false);
-  const [resumeLoaded, setResumeLoaded] = useState(false);
-  const [metadataReady, setMetadataReady] = useState(false);
-
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [aiResult, setAiResult] = useState<string | null>(null);
-
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 });
-  const [showSettings, setShowSettings] = useState(false);
-  const [showEpisodes, setShowEpisodes] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-
-  const [seekAnim, setSeekAnim] = useState({ visible: false, side: '', seconds: 0 });
-
-  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const animTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const accumulatedSeconds = useRef(0);
-
-  const lastProgressSentAtRef = useRef(0);
-  const lastProgressPositionRef = useRef(0);
+  const {
+    isPlaying, setIsPlaying,
+    isEnded, setIsEnded,
+    progress, setProgress,
+    currentTime, setCurrentTime,
+    duration, setDuration,
+    timeLeft, setTimeLeft,
+    showTimeLeft, setShowTimeLeft,
+    volume, setVolume,
+    isMuted, setIsMuted,
+    isFullscreen, setIsFullscreen,
+    showControls, setShowControls,
+    isHoveringProgress, setIsHoveringProgress,
+    showCenterPlay, setShowCenterPlay,
+    currentChapter, setCurrentChapter,
+    playbackSpeed, setPlaybackSpeed,
+    isLooping, setIsLooping,
+    showSettings, setShowSettings,
+    showEpisodes, setShowEpisodes,
+    contextMenu, setContextMenu,
+    seekAnim, setSeekAnim,
+    resumeSeconds, setResumeSeconds,
+    resumeApplied, setResumeApplied,
+    resumeLoaded, setResumeLoaded,
+    metadataReady, setMetadataReady,
+    isAnalyzing, setIsAnalyzing,
+    aiResult, setAiResult,
+    controlsTimeoutRef,
+    clickTimeoutRef,
+    animTimeoutRef,
+    accumulatedSeconds,
+    lastProgressSentAtRef,
+    lastProgressPositionRef,
+  } = usePlayerState();
 
   const streamUrl = getStreamUrl(video);
   const posterUrl = getManualThumbnailUrl(video);
@@ -319,42 +316,26 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, videos, onClose, onSel
       saveProgress(false);
     }
     const totalSec = total;
-    let introEnd: number;
-    let midEnd: number;
-    let climaxEnd: number;
+    const thresholds =
+      totalSec <= CHAPTER_THRESHOLDS.veryShort.maxDuration ? CHAPTER_THRESHOLDS.veryShort :
+      totalSec <= CHAPTER_THRESHOLDS.short.maxDuration     ? CHAPTER_THRESHOLDS.short :
+      totalSec <= CHAPTER_THRESHOLDS.standard.maxDuration  ? CHAPTER_THRESHOLDS.standard :
+                                                             CHAPTER_THRESHOLDS.long;
 
-    if (totalSec <= 10 * 60) {
-      // Very short content
-      introEnd = totalSec * 0.12;
-      midEnd = totalSec * 0.55;
-      climaxEnd = totalSec * 0.82;
-    } else if (totalSec <= 30 * 60) {
-      // Short episode
-      introEnd = totalSec * 0.14;
-      midEnd = totalSec * 0.60;
-      climaxEnd = totalSec * 0.85;
-    } else if (totalSec <= 90 * 60) {
-      // Standard movie/episode
-      introEnd = totalSec * 0.12;
-      midEnd = totalSec * 0.65;
-      climaxEnd = totalSec * 0.88;
-    } else {
-      // Long content
-      introEnd = totalSec * 0.10;
-      midEnd = totalSec * 0.68;
-      climaxEnd = totalSec * 0.90;
+    let introEnd  = totalSec * thresholds.intro;
+    let midEnd    = totalSec * thresholds.mid;
+    let climaxEnd = totalSec * thresholds.climax;
+
+    // Safety: pastikan intro minimal 30 detik dan penutup minimal 2 menit sebelum akhir
+    if (totalSec >= CHAPTER_MIN_DURATION_FOR_SAFETY) {
+      introEnd  = Math.max(introEnd, CHAPTER_INTRO_MIN_SECONDS);
+      climaxEnd = Math.min(climaxEnd, totalSec - CHAPTER_OUTRO_BUFFER_SECONDS);
     }
 
-    // Safety: ensure at least 30s for intro and 2m for ending when possible
-    if (totalSec >= 4 * 60) {
-      introEnd = Math.max(introEnd, 30);
-      climaxEnd = Math.min(climaxEnd, totalSec - 120);
-    }
-
-    if (current < introEnd) setCurrentChapter('Intro');
-    else if (current < midEnd) setCurrentChapter('Misi Dimulai');
-    else if (current < climaxEnd) setCurrentChapter('Klimaks');
-    else setCurrentChapter('Penutup');
+    if (current < introEnd)       setCurrentChapter(CHAPTER_NAMES.intro);
+    else if (current < midEnd)    setCurrentChapter(CHAPTER_NAMES.mid);
+    else if (current < climaxEnd) setCurrentChapter(CHAPTER_NAMES.climax);
+    else                          setCurrentChapter(CHAPTER_NAMES.outro);
   };
 
   const handleLoadedMetadata = () => {
