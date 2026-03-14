@@ -19,6 +19,9 @@ import {
   Check
 } from 'lucide-react';
 import { Video, api, getStreamUrl, getManualThumbnailUrl } from '../api';
+import { ProgressBar } from './player/ProgressBar';
+import { EpisodeList } from './player/EpisodeList';
+import { PlayerControls } from './player/PlayerControls';
 
 interface PlayerModalProps {
   video: Video;
@@ -27,25 +30,7 @@ interface PlayerModalProps {
   onSelectVideo: (video: Video) => void;
 }
 
-const TooltipButton: React.FC<{
-  children: React.ReactNode;
-  text: string;
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
-  className?: string;
-}> = ({ children, text, onClick, className = "" }) => (
-  <div className="relative group/btn flex items-center justify-center">
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-white/90 hover:text-white transition-all duration-200 p-2 rounded-full hover:bg-white/10 ${className}`}
-    >
-      {children}
-    </button>
-    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 text-white text-xs py-1.5 px-3 rounded whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity duration-200 pointer-events-none scale-95 group-hover/btn:scale-100 z-50">
-      {text}
-    </div>
-  </div>
-);
+
 
 const PlayerModal: React.FC<PlayerModalProps> = ({ video, videos, onClose, onSelectVideo }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -81,14 +66,11 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, videos, onClose, onSel
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
   const [seekAnim, setSeekAnim] = useState({ visible: false, side: '', seconds: 0 });
-  const [hoverTime, setHoverTime] = useState('0:00');
-  const [hoverPosition, setHoverPosition] = useState(0);
-  const [showHoverTooltip, setShowHoverTooltip] = useState(false);
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const progressContainerRef = useRef<HTMLDivElement | null>(null);
+
   const accumulatedSeconds = useRef(0);
 
   const lastProgressSentAtRef = useRef(0);
@@ -383,26 +365,12 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, videos, onClose, onSel
 
   };
 
-  const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = (percent: number) => {
     const el = videoRef.current;
     if (!el || !Number.isFinite(el.duration)) return;
-    const value = Number(e.target.value);
-    const newTime = (value / 100) * el.duration;
-    el.currentTime = newTime; setProgress(value);
-  };
-
-  const handleProgressMouseMove = (e: React.MouseEvent) => {
-    if (!progressContainerRef.current || !videoRef.current) return;
-    const rect = progressContainerRef.current.getBoundingClientRect();
-    let pos = (e.clientX - rect.left) / rect.width;
-    pos = Math.max(0, Math.min(1, pos));
-    setHoverPosition(pos * 100);
-    setHoverTime(formatTime(pos * videoRef.current.duration));
-    setShowHoverTooltip(true);
-  };
-
-  const handleProgressMouseLeave = () => {
-    setShowHoverTooltip(false); setIsHoveringProgress(false);
+    const newTime = (percent / 100) * el.duration;
+    el.currentTime = newTime;
+    setProgress(percent);
   };
 
   const toggleMute = () => {
@@ -860,375 +828,43 @@ const PlayerModal: React.FC<PlayerModalProps> = ({ video, videos, onClose, onSel
           )}
 
           {/* Episodes Panel */}
-        {showEpisodes && isSeries && (
-          <div className="animate-menu-pop" style={{
-            position: 'absolute',
-            bottom: '80px',
-            right: '72px',
-            zIndex: 40,
-            background: 'rgba(18,18,18,0.95)',
-            backdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-            padding: '10px',
-            minWidth: '260px',
-            maxWidth: '320px',
-            maxHeight: '45vh',
-            overflowY: 'auto',
-          }}>
-            <div style={{ padding: '6px 10px 10px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Season {video.season || 1}</div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: 'white' }}>{video.seriesTitle || 'Series'}</div>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>{seasonEpisodes.length} episodes</div>
-            </div>
-            <div style={{ display: 'grid', gap: '6px', padding: '8px' }}>
-              {seasonEpisodes.map((ep, idx) => (
-                <button
-                  key={ep.filename}
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onSelectVideo(ep); }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '10px',
-                    padding: '8px 10px',
-                    borderRadius: '10px',
-                    border: ep.filename === video.filename ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.08)',
-                    background: ep.filename === video.filename ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.04)',
-                    color: 'white',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>Episode {ep.episode || idx + 1}</span>
-                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ep.title}</span>
-                  </div>
-                  {ep.filename === video.filename && (
-                    <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700, letterSpacing: '0.4px' }}>PLAYING</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Settings Popup */}
-          {showSettings && (
-            <div className="animate-menu-pop" style={{
-              position: 'absolute',
-              bottom: '80px',
-              right: '16px',
-              zIndex: 40,
-              background: 'rgba(18,18,18,0.95)',
-              backdropFilter: 'blur(24px)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px',
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-              padding: '8px 0',
-              minWidth: '200px',
-            }}>
-              <div style={{ padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Kecepatan Pemutaran</span>
-              </div>
-              {[0.5, 1, 1.5, 2].map((speed) => (
-                <button key={speed} onClick={(e) => { e.stopPropagation(); changeSpeed(speed); }} type="button" style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 20px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: 'rgba(255,255,255,0.9)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}>
-                  <span>{speed === 1 ? 'Normal' : `${speed}x`}</span>
-                  {playbackSpeed === speed && <Check size={16} style={{ color: '#ef4444' }} />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ─── BOTTOM GRADIENT ─── */}
-        <div style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: '50%',
-          background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.3), transparent)',
-          transition: 'opacity 0.3s',
-          pointerEvents: 'none',
-          opacity: showControls ? 1 : 0,
-        }} />
-
-        {/* ─── BOTTOM CONTROLS BAR ─── */}
-        <div style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: '48px 24px 8px 24px',
-          transition: 'all 0.3s',
-          transform: showControls ? 'translateY(0)' : 'translateY(16px)',
-          opacity: showControls ? 1 : 0,
-          zIndex: 30,
-        }}>
-
-          {/* Progress Bar */}
-          <div
-            ref={progressContainerRef}
-            style={{
-              position: 'relative',
-              width: '100%',
-              height: '20px',
-              cursor: 'pointer',
-              borderRadius: '9999px',
-              marginBottom: '12px',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-            onMouseEnter={() => setIsHoveringProgress(true)}
-            onMouseLeave={handleProgressMouseLeave}
-            onMouseMove={handleProgressMouseMove}
-          >
-            {/* Hover Time Tooltip */}
-            {showHoverTooltip && (
-              <div style={{
-                position: 'absolute',
-                bottom: '20px',
-                left: `${hoverPosition}%`,
-                transform: 'translateX(-50%)',
-                background: 'white',
-                color: 'black',
-                fontSize: '11px',
-                fontWeight: 700,
-                padding: '4px 8px',
-                borderRadius: '4px',
-                pointerEvents: 'none',
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                zIndex: 10,
-              }}>
-                {hoverTime}
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 0,
-                  height: 0,
-                  borderLeft: '4px solid transparent',
-                  borderRight: '4px solid transparent',
-                  borderTop: '4px solid white',
-                }} />
-              </div>
-            )}
-
-            {/* Track Background */}
-            <div style={{
-              position: 'absolute',
-              width: '100%',
-              height: isHoveringProgress ? '6px' : '4px',
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              borderRadius: '9999px',
-              transition: 'height 0.2s',
-            }} />
-            {/* Buffer */}
-            <div style={{
-              position: 'absolute',
-              height: isHoveringProgress ? '6px' : '4px',
-              width: `${Math.min(progress + 5, 100)}%`,
-              backgroundColor: 'rgba(255,255,255,0.4)',
-              borderRadius: '9999px',
-              transition: 'height 0.2s',
-            }} />
-            {/* Progress (Red) */}
-            <div style={{
-              position: 'absolute',
-              height: isHoveringProgress ? '6px' : '4px',
-              width: `${progress}%`,
-              backgroundColor: '#ff0000',
-              borderRadius: '9999px',
-              pointerEvents: 'none',
-              transition: 'height 0.2s',
-              boxShadow: isHoveringProgress ? '0 0 8px rgba(255,0,0,0.8)' : 'none',
-            }}>
-              {/* Thumb */}
-              <div style={{
-                position: 'absolute',
-                right: '-7px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                width: isHoveringProgress ? '14px' : '0',
-                height: isHoveringProgress ? '14px' : '0',
-                backgroundColor: '#ff0000',
-                borderRadius: '50%',
-                transition: 'all 0.2s',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-              }} />
-            </div>
-            {/* Hidden Range Input */}
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="0.1"
-              value={progress}
-              onChange={handleProgressChange}
-              style={{
-                position: 'absolute',
-                width: '100%',
-                height: '100%',
-                opacity: 0,
-                cursor: 'pointer',
-                zIndex: 10,
-                margin: 0,
-              }}
-            />
-          </div>
+          <EpisodeList
+            showEpisodes={showEpisodes}
+            isSeries={isSeries}
+            video={video}
+            seasonEpisodes={seasonEpisodes}
+            onSelectVideo={onSelectVideo}
+          />
 
           {/* Controls Row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {/* Left Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {/* Play/Pause */}
-              <TooltipButton onClick={togglePlay} text={isEnded ? "Putar Ulang" : (isPlaying ? "Jeda (k)" : "Putar (k)")} className="hover:scale-110 hover:text-[#ff0000] transition-all">
-                {isEnded ? <RefreshCw size={24} /> : (isPlaying ? <Pause fill="currentColor" size={26} /> : <Play fill="currentColor" size={26} style={{ marginLeft: '2px' }} />)}
-              </TooltipButton>
-
-              {/* Next */}
-              <TooltipButton onClick={goNextEpisode} text="Selanjutnya (Shift+N)">
-                <SkipForward fill="currentColor" size={20} style={{ opacity: 0.8 }} />
-              </TooltipButton>
-
-              {/* Skip Back 15s */}
-              <TooltipButton onClick={() => skipTime(-15)} text="Mundur 15 detik" className="hidden sm:flex">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '24px', height: '24px', opacity: 0.8 }}>
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                  <text x="12" y="12" textAnchor="middle" dy="0.35em" fontSize="7.5" fontWeight="bold" strokeWidth="0" fill="currentColor" fontFamily="sans-serif">15</text>
-                </svg>
-              </TooltipButton>
-
-              {/* Skip Forward 15s */}
-              <TooltipButton onClick={() => skipTime(15)} text="Maju 15 detik" className="hidden sm:flex">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '24px', height: '24px', opacity: 0.8 }}>
-                  <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                  <path d="M21 3v5h-5" />
-                  <text x="12" y="12" textAnchor="middle" dy="0.35em" fontSize="7.5" fontWeight="bold" strokeWidth="0" fill="currentColor" fontFamily="sans-serif">15</text>
-                </svg>
-              </TooltipButton>
-
-              {/* Separator */}
-              <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.2)', margin: '0 8px', borderRadius: '9999px' }} />
-
-              {/* Volume */}
-              <div style={{ display: 'flex', alignItems: 'center' }} onWheel={handleVolumeScroll}>
-                <TooltipButton onClick={toggleMute} text={isMuted || volume === 0 ? "Suarakan (m)" : "Bisukan (m)"}>
-                  {isMuted || volume === 0 ? <VolumeX size={24} style={{ opacity: 0.8 }} /> : <Volume2 size={24} style={{ opacity: 0.8 }} />}
-                </TooltipButton>
-              </div>
-
-              {/* Separator */}
-              <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.2)', margin: '0 8px', borderRadius: '9999px' }} />
-
-              {/* Time Display + Equalizer */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px' }}>
-                <div onClick={toggleTimeDisplay} style={{
-                  fontSize: '13px',
-                  letterSpacing: '0.025em',
-                  display: 'flex',
-                  alignItems: 'center',
-                  fontVariantNumeric: 'tabular-nums',
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}>
-                  <span style={{ fontWeight: 600, color: 'white' }}>{currentTime}</span>
-                  <span style={{ color: 'rgba(255,255,255,0.3)', margin: '0 6px' }}>/</span>
-                  <span style={{ fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>{showTimeLeft ? `-${timeLeft}` : duration}</span>
-
-                  {/* Mini Equalizer */}
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '12px', marginLeft: '10px', opacity: 0.9 }}>
-                    <div className={isPlaying ? 'eq-1' : ''} style={{ width: '3px', backgroundColor: 'white', borderRadius: '1px 1px 0 0', height: isPlaying ? undefined : '3px', transition: 'all 0.3s' }} />
-                    <div className={isPlaying ? 'eq-2' : ''} style={{ width: '3px', backgroundColor: 'white', borderRadius: '1px 1px 0 0', height: isPlaying ? undefined : '4px', transition: 'all 0.3s' }} />
-                    <div className={isPlaying ? 'eq-3' : ''} style={{ width: '3px', backgroundColor: 'white', borderRadius: '1px 1px 0 0', height: isPlaying ? undefined : '3px', transition: 'all 0.3s' }} />
-                  </div>
-                </div>
-
-                {/* Chapter Info + 4K Badge */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'rgba(255,255,255,0.7)',
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  padding: '6px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                }}>
-                  <span style={{
-                    width: '6px', height: '6px', borderRadius: '50%',
-                    backgroundColor: '#ff0000',
-                    display: 'inline-block',
-                    animation: 'pulse 2s infinite',
-                  }} />
-                  <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentChapter}</span>
-                  <div style={{ width: '1px', height: '12px', backgroundColor: 'rgba(255,255,255,0.2)', margin: '0 2px' }} />
-                  <span style={{
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                    color: 'white',
-                    fontSize: '9px',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    fontWeight: 700,
-                    letterSpacing: '0.05em',
-                  }}>4K</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
-              <TooltipButton onClick={analyzeScene} text="Tanya AI Adegan Ini ✨" className="text-red-400 hover:text-red-300 hover:bg-red-500/20">
-                <Sparkles size={22} />
-              </TooltipButton>
-              <TooltipButton onClick={togglePiP} text="Gambar dalam Gambar" className="hidden sm:flex">
-                <PictureInPicture size={22} />
-              </TooltipButton>
-              <TooltipButton onClick={(e) => { e.stopPropagation(); setShowEpisodes(!showEpisodes); setShowSettings(false); }} text="Episodes" className={showEpisodes ? "text-white bg-white/20" : ""}>
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="4" width="18" height="4" rx="1" />
-                  <rect x="3" y="10" width="18" height="4" rx="1" />
-                  <rect x="3" y="16" width="18" height="4" rx="1" />
-                </svg>
-              </TooltipButton>
-              <TooltipButton text="Subtitle/CC">
-                <Subtitles size={22} />
-              </TooltipButton>
-              <TooltipButton
-                onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); }}
-                text="Pengaturan"
-                className={showSettings ? "text-white bg-white/20" : ""}
-              >
-                <Settings size={22} style={{ transition: 'transform 0.3s', transform: showSettings ? 'rotate(90deg)' : 'none' }} />
-              </TooltipButton>
-              <TooltipButton onClick={toggleFullscreen} text={isFullscreen ? "Keluar Layar Penuh (f)" : "Layar Penuh (f)"} className="ml-2">
-                {isFullscreen ? <Minimize size={26} /> : <Maximize size={26} />}
-              </TooltipButton>
-            </div>
-          </div>
+          <PlayerControls
+            isPlaying={isPlaying}
+            isEnded={isEnded}
+            volume={volume}
+            isMuted={isMuted}
+            isFullscreen={isFullscreen}
+            showSettings={showSettings}
+            showEpisodes={showEpisodes}
+            isSeries={isSeries}
+            currentTime={currentTime}
+            duration={duration}
+            timeLeft={timeLeft}
+            showTimeLeft={showTimeLeft}
+            currentChapter={currentChapter}
+            playbackSpeed={playbackSpeed}
+            onTogglePlay={togglePlay}
+            onNextEpisode={goNextEpisode}
+            onSkipTime={skipTime}
+            onToggleMute={toggleMute}
+            onVolumeScroll={handleVolumeScroll}
+            onToggleTimeDisplay={toggleTimeDisplay}
+            onAnalyzeScene={analyzeScene}
+            onTogglePiP={togglePiP}
+            onToggleEpisodes={(e) => { e.stopPropagation(); setShowEpisodes(!showEpisodes); setShowSettings(false); }}
+            onToggleSettings={(e) => { e.stopPropagation(); setShowSettings(!showSettings); }}
+            onToggleFullscreen={toggleFullscreen}
+            onChangeSpeed={changeSpeed}
+          />
         </div>
       </div>
     </div>
