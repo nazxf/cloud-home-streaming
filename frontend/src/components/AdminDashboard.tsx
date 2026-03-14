@@ -656,7 +656,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
             <button
                 type="button"
                 className="admin-form-input"
-                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                style={{ textAlign: 'left' }}
             >
                 {uploadSeriesTitle || 'Select or type a series...'}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -697,12 +697,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
         </PopoverContent>
     </Popover>
 </div>
-<div className="admin-form-group" style={{ display: 'flex', gap: '1rem' }}>
-    <div style={{ flex: 1 }}>
+<div className="admin-form-group admin-inline-fields">
+    <div className="admin-inline-field">
         <label className="admin-form-label">Season</label>
         <input className="admin-form-input" type="number" min="1" value={uploadSeason} onChange={e => setUploadSeason(parseInt(e.target.value) || 1)} />
     </div>
-    <div style={{ flex: 1 }}>
+    <div className="admin-inline-field">
         <label className="admin-form-label">Episode</label>
         <input className="admin-form-input" type="number" min="1" value={uploadEpisode} onChange={e => setUploadEpisode(parseInt(e.target.value) || 1)} />
     </div>
@@ -768,7 +768,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
 
                             {bulkItems.length > 0 && (
                                 <div className="admin-bulk-queue">
-                                    <div className="admin-upload-form-grid" style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid #333' }}>
+                                    <div className="admin-upload-form-grid admin-bulk-settings">
                                         <div className="admin-form-group">
                                             <label className="admin-form-label">Bulk Content Type</label>
                                             <Select value={bulkContentType} onValueChange={(v: 'movie'|'series') => setBulkContentType(v)} disabled={bulkRunning}>
@@ -791,7 +791,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
             <button
                 type="button"
                 className="admin-form-input"
-                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                style={{ textAlign: 'left' }}
             >
                 {bulkSeriesTitle || 'Select or type a series...'}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -832,12 +832,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
         </PopoverContent>
     </Popover>
 </div>
-<div className="admin-form-group" style={{ display: 'flex', gap: '1rem' }}>
-    <div style={{ flex: 1 }}>
+<div className="admin-form-group admin-inline-fields">
+    <div className="admin-inline-field">
         <label className="admin-form-label">Season</label>
         <input className="admin-form-input" type="number" min="1" value={bulkSeason} onChange={e => setBulkSeason(parseInt(e.target.value) || 1)} />
     </div>
-    <div style={{ flex: 1 }}>
+    <div className="admin-inline-field">
         <label className="admin-form-label">Start Episode (Auto-incremented)</label>
         <input className="admin-form-input" type="number" min="1" value={bulkStartEpisode} onChange={e => setBulkStartEpisode(parseInt(e.target.value) || 1)} />
     </div>
@@ -853,7 +853,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
                                                 <span className="admin-bulk-size">{(item.file.size / (1024 * 1024)).toFixed(1)} MB</span>
                                             </div>
                                             {bulkContentType === 'series' && (
-                                                <input className="admin-form-input compact" type="number" value={item.episode || ''} onChange={e => updateBulkItem(item.id, { episode: parseInt(e.target.value) || 1 })} placeholder="Ep" style={{ width: '60px' }} disabled={bulkRunning} />
+                                                <input className="admin-form-input compact admin-episode-input" type="number" value={item.episode || ''} onChange={e => updateBulkItem(item.id, { episode: parseInt(e.target.value) || 1 })} placeholder="Ep" disabled={bulkRunning} />
                                             )}
                                             <input className="admin-form-input compact" value={item.title} onChange={e => updateBulkItem(item.id, { title: e.target.value })} placeholder={bulkContentType === 'series' ? "Optional Ep Title" : "Title"} disabled={bulkRunning} />
                                             <div className="admin-bulk-progress-wrap">
@@ -908,7 +908,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
             <button
                 type="button"
                 className="admin-form-input"
-                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                style={{ textAlign: 'left' }}
             >
                 {editSeriesTitle || 'Select or type a series...'}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -949,12 +949,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ username, onLogout, onS
         </PopoverContent>
     </Popover>
 </div>
-<div className="admin-form-group" style={{ display: 'flex', gap: '1rem' }}>
-    <div style={{ flex: 1 }}>
+<div className="admin-form-group admin-inline-fields">
+    <div className="admin-inline-field">
         <label className="admin-form-label">Season</label>
         <input className="admin-form-input" type="number" min="1" value={editSeason} onChange={e => setEditSeason(parseInt(e.target.value) || 1)} />
     </div>
-    <div style={{ flex: 1 }}>
+    <div className="admin-inline-field">
         <label className="admin-form-label">Episode</label>
         <input className="admin-form-input" type="number" min="1" value={editEpisode} onChange={e => setEditEpisode(parseInt(e.target.value) || 1)} />
     </div>

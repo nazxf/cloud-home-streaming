@@ -18,6 +18,16 @@
   gap: 6px;
 }
 
+.admin-inline-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-inline-field {
+  min-width: 0;
+}
+
 .admin-form-label {
   font-size: 12px;
   font-weight: 600;
@@ -51,6 +61,16 @@
 .admin-form-input.compact {
   padding: 8px 10px;
   font-size: 13px;
+}
+
+.admin-episode-input {
+  width: 72px;
+}
+
+.admin-bulk-settings {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #333;
 }
 
 .admin-file-picker {
@@ -300,4 +320,10 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 8px 12px 4px !important;
+}
+
+@media (max-width: 640px) {
+  .admin-inline-fields {
+    grid-template-columns: 1fr;
+  }
 }
